@@ -2,3 +2,13 @@
 members = [
     "hst-core",
 ]
+
+# Our proptest-based tests run really slowly when compiled with no
+# optimizations.  This trades a little bit of extra compile time for much faster
+# test execution.  Notes that we have to set this for both the `dev` and `test`
+# profiles, since the `dev` profile is used to compile our crate's dependencies,
+# which we also want to be optimized.
+[profile.dev]
+opt-level = 2
+[profile.test]
+opt-level = 2
