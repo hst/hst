@@ -1,0 +1,20 @@
+language: rust
+cache: cargo
+sudo: false
+
+rust:
+  - 1.35.0
+  - stable
+
+before_script:
+  - rustup component add rustfmt-preview
+
+script:
+  - cargo fmt --all -- --check
+  - cargo build
+  - cargo test
+
+# In addition to pull requests, always build these branches
+branches:
+  only:
+    - master
