@@ -58,6 +58,7 @@ impl Debug for Tick {
 
 /// The process that performs no actions (and prevents any other synchronized processes from
 /// performing any, either).
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Stop;
 
 impl Display for Stop {
@@ -72,6 +73,7 @@ impl Debug for Stop {
     }
 }
 
+#[doc(hidden)]
 pub struct StopInitials<E>(PhantomData<E>);
 
 impl<E> IntoIterator for StopInitials<E> {
@@ -91,6 +93,7 @@ impl<E> Initials<E> for Stop {
     }
 }
 
+#[doc(hidden)]
 pub struct StopAfters<P>(PhantomData<P>);
 
 impl<P> IntoIterator for StopAfters<P> {
@@ -111,16 +114,114 @@ impl<E, P> Afters<E, P> for Stop {
 }
 
 #[cfg(test)]
-mod tests {
+mod stop_tests {
     use super::*;
 
     use std::collections::HashMap;
 
+    use crate::csp::CSP;
     use crate::process::transitions;
+    use crate::test_support::TestEvent;
 
     #[test]
-    fn stop_has_no_transitions() {
-        let transitions: HashMap<(), Vec<Stop>> = transitions(&Stop);
+    fn check_stop_transitions() {
+        let transitions: HashMap<TestEvent, Vec<CSP>> = transitions(&Stop.into());
         assert!(transitions.is_empty());
+    }
+}
+
+//-------------------------------------------------------------------------------------------------
+// Skip
+
+/// The process that performs Tick and then becomes Stop.  Used to indicate the end of a process
+/// that can be sequentially composed with something else.
+#[derive(Clone, Eq, Hash, PartialEq)]
+pub struct Skip;
+
+impl Display for Skip {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("Skip")
+    }
+}
+
+impl Debug for Skip {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        (self as &Display).fmt(f)
+    }
+}
+
+#[doc(hidden)]
+pub struct SkipInitials<E>(PhantomData<E>);
+
+impl<E> IntoIterator for SkipInitials<E>
+where
+    E: From<Tick>,
+{
+    type Item = E;
+    type IntoIter = std::iter::Once<E>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        std::iter::once(Tick.into())
+    }
+}
+
+impl<E> Initials<E> for Skip
+where
+    E: From<Tick>,
+{
+    type Initials = SkipInitials<E>;
+
+    fn initials(&self) -> Self::Initials {
+        SkipInitials(PhantomData)
+    }
+}
+
+#[doc(hidden)]
+pub struct SkipAfters<P>(PhantomData<P>);
+
+impl<P> IntoIterator for SkipAfters<P>
+where
+    P: From<Stop>,
+{
+    type Item = P;
+    type IntoIter = std::iter::Once<P>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        std::iter::once(Stop.into())
+    }
+}
+
+impl<E, P> Afters<E, P> for Skip
+where
+    E: Eq + From<Tick>,
+    P: From<Stop>,
+{
+    type Afters = SkipAfters<P>;
+
+    fn afters(&self, initial: &E) -> Option<Self::Afters> {
+        if *initial == Tick.into() {
+            Some(SkipAfters(PhantomData))
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(test)]
+mod skip_tests {
+    use super::*;
+
+    use std::collections::HashMap;
+
+    use maplit::hashmap;
+
+    use crate::csp::CSP;
+    use crate::process::transitions;
+    use crate::test_support::TestEvent;
+
+    #[test]
+    fn check_skip_transitions() {
+        let transitions: HashMap<TestEvent, Vec<CSP>> = transitions(&Skip.into());
+        assert_eq!(transitions, hashmap! { Tick.into() => vec![Stop.into()] });
     }
 }
