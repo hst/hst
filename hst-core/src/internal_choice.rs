@@ -17,7 +17,6 @@
 
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::marker::PhantomData;
 
 use crate::primitives::tau;
 use crate::primitives::Tau;
@@ -53,30 +52,15 @@ impl<P: Display> Debug for InternalChoice<P> {
 // 1) ──────────── P ∈ Ps
 //     ⊓ Ps -τ→ P
 
-#[doc(hidden)]
-pub struct InternalChoiceInitials<E>(PhantomData<E>);
-
-impl<E> IntoIterator for InternalChoiceInitials<E>
-where
-    E: From<Tau>,
-{
-    type Item = E;
-    type IntoIter = std::iter::Once<E>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        std::iter::once(tau())
-    }
-}
-
 impl<E, P> Initials<E> for InternalChoice<P>
 where
     E: From<Tau>,
 {
-    type Initials = InternalChoiceInitials<E>;
+    type Initials = std::iter::Once<E>;
 
     fn initials(&self) -> Self::Initials {
         // initials(⊓ Ps) = {τ}
-        InternalChoiceInitials(PhantomData)
+        std::iter::once(tau())
     }
 }
 

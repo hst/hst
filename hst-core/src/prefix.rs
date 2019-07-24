@@ -50,39 +50,15 @@ impl<E: Display, P: Display> Debug for Prefix<E, P> {
 // 1) ─────────────
 //     a → P -a→ P
 
-#[doc(hidden)]
-pub struct PrefixInitials<E>(E);
-
-impl<E> IntoIterator for PrefixInitials<E> {
-    type Item = E;
-    type IntoIter = std::iter::Once<E>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        std::iter::once(self.0)
-    }
-}
-
 impl<E, P> Initials<E> for Prefix<E, P>
 where
     E: Clone,
 {
-    type Initials = PrefixInitials<E>;
+    type Initials = std::iter::Once<E>;
 
     fn initials(&self) -> Self::Initials {
         // initials(a → P) = {a}
-        PrefixInitials(self.0.clone())
-    }
-}
-
-#[doc(hidden)]
-pub struct PrefixAfters<P>(P);
-
-impl<P> IntoIterator for PrefixAfters<P> {
-    type Item = P;
-    type IntoIter = std::iter::Once<P>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        std::iter::once(self.0)
+        std::iter::once(self.0.clone())
     }
 }
 
@@ -91,12 +67,12 @@ where
     E: Eq,
     P: Clone,
 {
-    type Afters = PrefixAfters<P>;
+    type Afters = std::iter::Once<P>;
 
     fn afters(&self, initial: &E) -> Option<Self::Afters> {
         // afters(a → P, a) = P
         if *initial == self.0 {
-            Some(PrefixAfters(self.1.clone()))
+            Some(std::iter::once(self.1.clone()))
         } else {
             None
         }

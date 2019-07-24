@@ -17,7 +17,6 @@
 
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::marker::PhantomData;
 
 use crate::process::Afters;
 use crate::process::Initials;
@@ -102,40 +101,16 @@ impl Debug for Stop {
     }
 }
 
-#[doc(hidden)]
-pub struct StopInitials<E>(PhantomData<E>);
-
-impl<E> IntoIterator for StopInitials<E> {
-    type Item = E;
-    type IntoIter = std::iter::Empty<E>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        std::iter::empty()
-    }
-}
-
 impl<E> Initials<E> for Stop {
-    type Initials = StopInitials<E>;
+    type Initials = std::iter::Empty<E>;
 
     fn initials(&self) -> Self::Initials {
-        StopInitials(PhantomData)
-    }
-}
-
-#[doc(hidden)]
-pub struct StopAfters<P>(PhantomData<P>);
-
-impl<P> IntoIterator for StopAfters<P> {
-    type Item = P;
-    type IntoIter = std::iter::Empty<P>;
-
-    fn into_iter(self) -> Self::IntoIter {
         std::iter::empty()
     }
 }
 
 impl<E, P> Afters<E, P> for Stop {
-    type Afters = StopAfters<P>;
+    type Afters = std::iter::Empty<P>;
 
     fn afters(&self, _initial: &E) -> Option<Self::Afters> {
         None
@@ -186,44 +161,14 @@ impl Debug for Skip {
     }
 }
 
-#[doc(hidden)]
-pub struct SkipInitials<E>(PhantomData<E>);
-
-impl<E> IntoIterator for SkipInitials<E>
-where
-    E: From<Tick>,
-{
-    type Item = E;
-    type IntoIter = std::iter::Once<E>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        std::iter::once(tick())
-    }
-}
-
 impl<E> Initials<E> for Skip
 where
     E: From<Tick>,
 {
-    type Initials = SkipInitials<E>;
+    type Initials = std::iter::Once<E>;
 
     fn initials(&self) -> Self::Initials {
-        SkipInitials(PhantomData)
-    }
-}
-
-#[doc(hidden)]
-pub struct SkipAfters<P>(PhantomData<P>);
-
-impl<P> IntoIterator for SkipAfters<P>
-where
-    P: From<Stop>,
-{
-    type Item = P;
-    type IntoIter = std::iter::Once<P>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        std::iter::once(stop())
+        std::iter::once(tick())
     }
 }
 
@@ -232,11 +177,11 @@ where
     E: Eq + From<Tick>,
     P: From<Stop>,
 {
-    type Afters = SkipAfters<P>;
+    type Afters = std::iter::Once<P>;
 
     fn afters(&self, initial: &E) -> Option<Self::Afters> {
         if *initial == Tick.into() {
-            Some(SkipAfters(PhantomData))
+            Some(std::iter::once(stop()))
         } else {
             None
         }
