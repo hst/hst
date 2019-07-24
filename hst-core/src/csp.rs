@@ -22,6 +22,7 @@ use std::rc::Rc;
 use auto_enums::enum_derive;
 use auto_from::From;
 
+use crate::internal_choice::InternalChoice;
 use crate::prefix::Prefix;
 use crate::primitives::Skip;
 use crate::primitives::Stop;
@@ -89,37 +90,45 @@ pub enum CSPSig<E, P> {
     Skip(Skip),
     #[doc(hidden)]
     Prefix(Prefix<E, P>),
+    #[doc(hidden)]
+    InternalChoice(InternalChoice<P>),
 }
 
 #[doc(hidden)]
 #[enum_derive(Iterator)]
-pub enum CSPIter<STOP, SKIP, PREFIX> {
-    Stop(STOP),
-    Skip(SKIP),
-    Prefix(PREFIX),
+pub enum CSPIter<Stop, Skip, Prefix, InternalChoice> {
+    Stop(Stop),
+    Skip(Skip),
+    Prefix(Prefix),
+    InternalChoice(InternalChoice),
 }
 
 #[doc(hidden)]
-pub enum CSPIntoIter<STOP, SKIP, PREFIX> {
-    Stop(STOP),
-    Skip(SKIP),
-    Prefix(PREFIX),
+pub enum CSPIntoIter<Stop, Skip, Prefix, InternalChoice> {
+    Stop(Stop),
+    Skip(Skip),
+    Prefix(Prefix),
+    InternalChoice(InternalChoice),
 }
 
-impl<E, STOP, SKIP, PREFIX> IntoIterator for CSPIntoIter<STOP, SKIP, PREFIX>
+impl<E, Stop, Skip, Prefix, InternalChoice> IntoIterator
+    for CSPIntoIter<Stop, Skip, Prefix, InternalChoice>
 where
-    STOP: IntoIterator<Item = E>,
-    SKIP: IntoIterator<Item = E>,
-    PREFIX: IntoIterator<Item = E>,
+    Stop: IntoIterator<Item = E>,
+    Skip: IntoIterator<Item = E>,
+    Prefix: IntoIterator<Item = E>,
+    InternalChoice: IntoIterator<Item = E>,
 {
     type Item = E;
-    type IntoIter = CSPIter<STOP::IntoIter, SKIP::IntoIter, PREFIX::IntoIter>;
+    type IntoIter =
+        CSPIter<Stop::IntoIter, Skip::IntoIter, Prefix::IntoIter, InternalChoice::IntoIter>;
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
             CSPIntoIter::Stop(this) => CSPIter::Stop(this.into_iter()),
             CSPIntoIter::Skip(this) => CSPIter::Skip(this.into_iter()),
             CSPIntoIter::Prefix(this) => CSPIter::Prefix(this.into_iter()),
+            CSPIntoIter::InternalChoice(this) => CSPIter::InternalChoice(this.into_iter()),
         }
     }
 }
@@ -129,11 +138,13 @@ where
     Stop: Initials<E>,
     Skip: Initials<E>,
     Prefix<E, P>: Initials<E>,
+    InternalChoice<P>: Initials<E>,
 {
     type Initials = CSPIntoIter<
         <Stop as Initials<E>>::Initials,
         <Skip as Initials<E>>::Initials,
         <Prefix<E, P> as Initials<E>>::Initials,
+        <InternalChoice<P> as Initials<E>>::Initials,
     >;
 
     fn initials(&self) -> Self::Initials {
@@ -141,6 +152,7 @@ where
             CSPSig::Stop(this) => CSPIntoIter::Stop(this.initials()),
             CSPSig::Skip(this) => CSPIntoIter::Skip(this.initials()),
             CSPSig::Prefix(this) => CSPIntoIter::Prefix(this.initials()),
+            CSPSig::InternalChoice(this) => CSPIntoIter::InternalChoice(this.initials()),
         }
     }
 }
@@ -150,11 +162,13 @@ where
     Stop: Afters<E, P>,
     Skip: Afters<E, P>,
     Prefix<E, P>: Afters<E, P>,
+    InternalChoice<P>: Afters<E, P>,
 {
     type Afters = CSPIntoIter<
         <Stop as Afters<E, P>>::Afters,
         <Skip as Afters<E, P>>::Afters,
         <Prefix<E, P> as Afters<E, P>>::Afters,
+        <InternalChoice<P> as Afters<E, P>>::Afters,
     >;
 
     fn afters(&self, initial: &E) -> Option<Self::Afters> {
@@ -162,6 +176,7 @@ where
             CSPSig::Stop(this) => this.afters(initial).map(CSPIntoIter::Stop),
             CSPSig::Skip(this) => this.afters(initial).map(CSPIntoIter::Skip),
             CSPSig::Prefix(this) => this.afters(initial).map(CSPIntoIter::Prefix),
+            CSPSig::InternalChoice(this) => this.afters(initial).map(CSPIntoIter::InternalChoice),
         }
     }
 }
@@ -177,6 +192,7 @@ mod proptest_support {
     use proptest::strategy::Just;
     use proptest::strategy::Strategy;
 
+    use crate::internal_choice::internal_choice;
     use crate::prefix::prefix;
     use crate::primitives::skip;
     use crate::primitives::stop;
@@ -196,7 +212,8 @@ mod proptest_support {
                     // explicitly refer to Tau and Tick; those should only be created as part of
                     // the CSP operators.
                     (any::<E>(), inner.clone())
-                        .prop_map(|(initial, after)| { prefix(initial.into(), after) }),
+                        .prop_map(|(initial, after)| prefix(initial.into(), after)),
+                    (inner.clone(), inner.clone()).prop_map(|(p, q)| internal_choice(p, q)),
                 ]
             })
             .boxed()
