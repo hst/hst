@@ -165,3 +165,42 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod proptest_support {
+    use super::*;
+
+    use proptest::arbitrary::any;
+    use proptest::arbitrary::Arbitrary;
+    use proptest::prop_oneof;
+    use proptest::strategy::BoxedStrategy;
+    use proptest::strategy::Just;
+    use proptest::strategy::Strategy;
+
+    use crate::prefix::prefix;
+    use crate::primitives::skip;
+    use crate::primitives::stop;
+
+    impl<E> Arbitrary for CSP<E>
+    where
+        E: Arbitrary + Clone + Display + 'static,
+    {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<CSP<E>>;
+
+        fn arbitrary_with(_args: ()) -> Self::Strategy {
+            let leaf = prop_oneof![Just(stop()), Just(skip())];
+            leaf.prop_recursive(8, 256, 10, |inner| {
+                prop_oneof![
+                    // We use NumberedEvent here because you shouldn't really create processes that
+                    // explicitly refer to Tau and Tick; those should only be created as part of
+                    // the CSP operators.
+                    (any::<E>(), inner.clone())
+                        .prop_map(|(initial, after)| { prefix(initial.into(), after) }),
+                ]
+            })
+            .boxed()
+        }
+    }
+
+}

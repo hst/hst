@@ -100,20 +100,17 @@ where
 mod prefix_tests {
     use super::*;
 
-    use std::collections::HashMap;
-
     use maplit::hashmap;
+    use proptest_attr_macro::proptest;
 
     use crate::csp::CSP;
-    use crate::primitives::stop;
     use crate::process::transitions;
-    use crate::test_support::numbered_event;
     use crate::test_support::TestEvent;
 
-    #[test]
-    fn check_prefix_transitions() {
-        let process = prefix(numbered_event(0), stop());
-        let transitions: HashMap<TestEvent, Vec<CSP<TestEvent>>> = transitions(&process);
-        assert_eq!(transitions, hashmap! { numbered_event(0) => vec![stop()] });
+    #[proptest]
+    fn check_prefix_transitions(initial: TestEvent, after: CSP<TestEvent>) {
+        let process = prefix(initial.clone(), after.clone());
+        let transitions = transitions(&process);
+        assert_eq!(transitions, hashmap! { initial => vec![after] });
     }
 }
