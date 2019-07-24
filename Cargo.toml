@@ -3,6 +3,9 @@ members = [
     "hst-core",
 ]
 
+[patch.crates-io]
+auto_from = { git = "https://gitlab.com/dcreager/auto_from.git", branch = "generics" }
+
 # Our proptest-based tests run really slowly when compiled with no
 # optimizations.  This trades a little bit of extra compile time for much faster
 # test execution.  Notes that we have to set this for both the `dev` and `test`

@@ -31,6 +31,10 @@ use crate::primitives::Tick;
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct NumberedEvent(pub u32);
 
+pub fn numbered_event<E: From<NumberedEvent>>(value: u32) -> E {
+    NumberedEvent(value).into()
+}
+
 impl From<u32> for NumberedEvent {
     fn from(from: u32) -> NumberedEvent {
         NumberedEvent(from)
