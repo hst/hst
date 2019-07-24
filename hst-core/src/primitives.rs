@@ -13,6 +13,8 @@
 // limitations under the License.
 // ------------------------------------------------------------------------------------------------
 
+//! Defines primitive CSP events and processes.
+
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
@@ -23,6 +25,16 @@ use crate::process::Initials;
 //-------------------------------------------------------------------------------------------------
 // Built-in CSP events
 
+/// Constructs a new _tau_ event (τ).  This is the hidden event that expresses nondeterminism in a
+/// CSP process.  You should rarely have to construct it directly, unless you're digging through
+/// the transitions of a process.
+pub fn tau<E: From<Tau>>() -> E {
+    Tau.into()
+}
+
+/// The type of the [`tau`] event.
+///
+/// [`tau`]: fn.tau.html
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Tau;
 
@@ -38,6 +50,16 @@ impl Debug for Tau {
     }
 }
 
+/// Constructs a new _tick_ event (✔).  This is the hidden event that represents the end of a
+/// process that can be sequentially composed with another process.  You should rarely have to
+/// construct it directly, unless you're digging through the transitions of a process.
+pub fn tick<E: From<Tick>>() -> E {
+    Tick.into()
+}
+
+/// The type of the [`tick`] event.
+///
+/// [`tick`]: fn.tau.html
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Tick;
 
@@ -56,8 +78,15 @@ impl Debug for Tick {
 //-------------------------------------------------------------------------------------------------
 // Stop
 
-/// The process that performs no actions (and prevents any other synchronized processes from
-/// performing any, either).
+/// Constructs a new _Stop_ process.  This is the process that performs no actions (and prevents
+/// any other synchronized processes from performing any, either).
+pub fn stop<P: From<Stop>>() -> P {
+    Stop.into()
+}
+
+/// The type of the [`Stop`] process.
+///
+/// [`stop`]: fn.stop.html
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Stop;
 
@@ -125,7 +154,7 @@ mod stop_tests {
 
     #[test]
     fn check_stop_transitions() {
-        let transitions: HashMap<TestEvent, Vec<CSP>> = transitions(&Stop.into());
+        let transitions: HashMap<TestEvent, Vec<CSP>> = transitions(&stop());
         assert!(transitions.is_empty());
     }
 }
@@ -133,8 +162,15 @@ mod stop_tests {
 //-------------------------------------------------------------------------------------------------
 // Skip
 
-/// The process that performs Tick and then becomes Stop.  Used to indicate the end of a process
-/// that can be sequentially composed with something else.
+/// Constructs a new _Skip_ process.  The process that performs Tick and then becomes Stop.  Used
+/// to indicate the end of a process that can be sequentially composed with something else.
+pub fn skip<P: From<Skip>>() -> P {
+    Skip.into()
+}
+
+/// The type of the [`Skip`] process.
+///
+/// [`skip`]: fn.stop.html
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Skip;
 
@@ -161,7 +197,7 @@ where
     type IntoIter = std::iter::Once<E>;
 
     fn into_iter(self) -> Self::IntoIter {
-        std::iter::once(Tick.into())
+        std::iter::once(tick())
     }
 }
 
@@ -187,7 +223,7 @@ where
     type IntoIter = std::iter::Once<P>;
 
     fn into_iter(self) -> Self::IntoIter {
-        std::iter::once(Stop.into())
+        std::iter::once(stop())
     }
 }
 
@@ -221,7 +257,7 @@ mod skip_tests {
 
     #[test]
     fn check_skip_transitions() {
-        let transitions: HashMap<TestEvent, Vec<CSP>> = transitions(&Skip.into());
-        assert_eq!(transitions, hashmap! { Tick.into() => vec![Stop.into()] });
+        let transitions: HashMap<TestEvent, Vec<CSP>> = transitions(&skip());
+        assert_eq!(transitions, hashmap! { tick() => vec![stop()] });
     }
 }

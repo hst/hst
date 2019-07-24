@@ -13,6 +13,8 @@
 // limitations under the License.
 // ------------------------------------------------------------------------------------------------
 
+//! Defines a process type that includes all of the CSP language.
+
 use auto_enums::enum_derive;
 use auto_from::From;
 
@@ -22,6 +24,10 @@ use crate::process::Afters;
 use crate::process::Initials;
 
 /// A process type that includes all of the primitive processes and operators in the CSP language.
+/// Note that you should never need to construct any variants of this type directly; use the helper
+/// constructor for each process (e.g. [`stop`]) or operator (TBD) instead.
+///
+/// [`stop`]: ../primitives/fn.stop.html
 #[enum_derive(Debug, Display)]
 #[derive(Clone, Eq, From, Hash, PartialEq)]
 pub enum CSP {
