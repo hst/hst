@@ -48,6 +48,11 @@ impl<P: Display> Debug for InternalChoice<P> {
     }
 }
 
+// Operational semantics for ⊓ Ps
+//
+// 1) ──────────── P ∈ Ps
+//     ⊓ Ps -τ→ P
+
 #[doc(hidden)]
 pub struct InternalChoiceInitials<E>(PhantomData<E>);
 
@@ -70,6 +75,7 @@ where
     type Initials = InternalChoiceInitials<E>;
 
     fn initials(&self) -> Self::Initials {
+        // initials(⊓ Ps) = {τ}
         InternalChoiceInitials(PhantomData)
     }
 }
@@ -82,6 +88,7 @@ where
     type Afters = std::vec::IntoIter<P>;
 
     fn afters(&self, initial: &E) -> Option<Self::Afters> {
+        // afters(⊓ Ps, τ) = Ps
         if *initial == tau() {
             Some(vec![self.0.clone(), self.1.clone()].into_iter())
         } else {

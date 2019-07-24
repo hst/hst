@@ -45,6 +45,11 @@ impl<E: Display, P: Display> Debug for Prefix<E, P> {
     }
 }
 
+// Operational semantics for a → P
+//
+// 1) ─────────────
+//     a → P -a→ P
+
 #[doc(hidden)]
 pub struct PrefixInitials<E>(E);
 
@@ -64,6 +69,7 @@ where
     type Initials = PrefixInitials<E>;
 
     fn initials(&self) -> Self::Initials {
+        // initials(a → P) = {a}
         PrefixInitials(self.0.clone())
     }
 }
@@ -88,6 +94,7 @@ where
     type Afters = PrefixAfters<P>;
 
     fn afters(&self, initial: &E) -> Option<Self::Afters> {
+        // afters(a → P, a) = P
         if *initial == self.0 {
             Some(PrefixAfters(self.1.clone()))
         } else {
