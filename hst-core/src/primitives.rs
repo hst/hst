@@ -154,7 +154,7 @@ mod stop_tests {
 
     #[test]
     fn check_stop_transitions() {
-        let transitions: HashMap<TestEvent, Vec<CSP>> = transitions(&stop());
+        let transitions: HashMap<TestEvent, Vec<CSP<TestEvent>>> = transitions(&stop());
         assert!(transitions.is_empty());
     }
 }
@@ -257,7 +257,7 @@ mod skip_tests {
 
     #[test]
     fn check_skip_transitions() {
-        let transitions: HashMap<TestEvent, Vec<CSP>> = transitions(&skip());
+        let transitions: HashMap<TestEvent, Vec<CSP<TestEvent>>> = transitions(&skip());
         assert_eq!(transitions, hashmap! { tick() => vec![stop()] });
     }
 }
