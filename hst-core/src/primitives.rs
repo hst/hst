@@ -21,6 +21,39 @@ use crate::process::Afters;
 use crate::process::Initials;
 
 //-------------------------------------------------------------------------------------------------
+// Built-in CSP events
+
+#[derive(Clone, Eq, Hash, PartialEq)]
+pub struct Tau;
+
+impl Display for Tau {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("τ")
+    }
+}
+
+impl Debug for Tau {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        (self as &Display).fmt(f)
+    }
+}
+
+#[derive(Clone, Eq, Hash, PartialEq)]
+pub struct Tick;
+
+impl Display for Tick {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("✔")
+    }
+}
+
+impl Debug for Tick {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        (self as &Display).fmt(f)
+    }
+}
+
+//-------------------------------------------------------------------------------------------------
 // Stop
 
 /// The process that performs no actions (and prevents any other synchronized processes from
