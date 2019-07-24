@@ -15,3 +15,6 @@
 
 pub mod primitives;
 pub mod process;
+
+#[cfg(test)]
+mod test_support;

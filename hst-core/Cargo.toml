@@ -5,3 +5,9 @@ authors = ["Douglas Creager <dcreager@dcreager.net>"]
 edition = "2018"
 
 [dependencies]
+
+[dev-dependencies]
+auto_enums = "0.5"
+auto_from = "0.3"
+proptest = "0.9"
+proptest-attr-macro = "0.1"
