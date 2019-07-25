@@ -4,13 +4,13 @@ sudo: false
 
 rust:
   - 1.35.0
-  - stable
+  - nightly
 
 before_script:
   - rustup component add rustfmt-preview
 
 script:
-  - cargo fmt --all -- --check
+  - if [ "$TRAVIS_RUST_VERSION" != nightly ]; then cargo fmt --all -- --check; fi
   - cargo build
   - cargo test
 

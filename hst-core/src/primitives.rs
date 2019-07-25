@@ -45,7 +45,7 @@ impl Display for Tau {
 
 impl Debug for Tau {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        (self as &Display).fmt(f)
+        (self as &dyn Display).fmt(f)
     }
 }
 
@@ -70,7 +70,7 @@ impl Display for Tick {
 
 impl Debug for Tick {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        (self as &Display).fmt(f)
+        (self as &dyn Display).fmt(f)
     }
 }
 
@@ -97,7 +97,7 @@ impl Display for Stop {
 
 impl Debug for Stop {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        (self as &Display).fmt(f)
+        (self as &dyn Display).fmt(f)
     }
 }
 
@@ -163,7 +163,7 @@ impl Display for Skip {
 
 impl Debug for Skip {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        (self as &Display).fmt(f)
+        (self as &dyn Display).fmt(f)
     }
 }
 

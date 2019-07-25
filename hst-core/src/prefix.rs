@@ -41,7 +41,7 @@ impl<E: Display, P: Display> Display for Prefix<E, P> {
 
 impl<E: Display, P: Display> Debug for Prefix<E, P> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        (self as &Display).fmt(f)
+        (self as &dyn Display).fmt(f)
     }
 }
 

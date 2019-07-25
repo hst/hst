@@ -60,7 +60,7 @@ impl Display for NumberedEvent {
 
 impl Debug for NumberedEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        (self as &Display).fmt(f)
+        (self as &dyn Display).fmt(f)
     }
 }
 

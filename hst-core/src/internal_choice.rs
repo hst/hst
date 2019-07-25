@@ -67,7 +67,7 @@ impl<P: Debug + Display> Display for InternalChoice<P> {
 
 impl<P: Debug + Display> Debug for InternalChoice<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        (self as &Display).fmt(f)
+        (self as &dyn Display).fmt(f)
     }
 }
 
