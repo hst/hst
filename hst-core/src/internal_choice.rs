@@ -52,26 +52,26 @@ impl<P: Display> Debug for InternalChoice<P> {
 // 1) ──────────── P ∈ Ps
 //     ⊓ Ps -τ→ P
 
-impl<E, P> Initials<E> for InternalChoice<P>
+impl<'a, E, P> Initials<'a, E> for InternalChoice<P>
 where
-    E: From<Tau>,
+    E: From<Tau> + 'a,
 {
     type Initials = std::iter::Once<E>;
 
-    fn initials(&self) -> Self::Initials {
+    fn initials(&'a self) -> Self::Initials {
         // initials(⊓ Ps) = {τ}
         std::iter::once(tau())
     }
 }
 
-impl<E, P> Afters<E, P> for InternalChoice<P>
+impl<'a, E, P> Afters<'a, E, P> for InternalChoice<P>
 where
     E: Eq + From<Tau>,
-    P: Clone,
+    P: Clone + 'a,
 {
     type Afters = std::vec::IntoIter<P>;
 
-    fn afters(&self, initial: &E) -> Option<Self::Afters> {
+    fn afters(&'a self, initial: &E) -> Option<Self::Afters> {
         // afters(⊓ Ps, τ) = Ps
         if *initial == tau() {
             Some(vec![self.0.clone(), self.1.clone()].into_iter())

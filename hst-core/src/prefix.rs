@@ -50,26 +50,26 @@ impl<E: Display, P: Display> Debug for Prefix<E, P> {
 // 1) ─────────────
 //     a → P -a→ P
 
-impl<E, P> Initials<E> for Prefix<E, P>
+impl<'a, E, P> Initials<'a, E> for Prefix<E, P>
 where
-    E: Clone,
+    E: Clone + 'a,
 {
     type Initials = std::iter::Once<E>;
 
-    fn initials(&self) -> Self::Initials {
+    fn initials(&'a self) -> Self::Initials {
         // initials(a → P) = {a}
         std::iter::once(self.0.clone())
     }
 }
 
-impl<E, P> Afters<E, P> for Prefix<E, P>
+impl<'a, E, P> Afters<'a, E, P> for Prefix<E, P>
 where
     E: Eq,
-    P: Clone,
+    P: Clone + 'a,
 {
     type Afters = std::iter::Once<P>;
 
-    fn afters(&self, initial: &E) -> Option<Self::Afters> {
+    fn afters(&'a self, initial: &E) -> Option<Self::Afters> {
         // afters(a → P, a) = P
         if *initial == self.0 {
             Some(std::iter::once(self.1.clone()))

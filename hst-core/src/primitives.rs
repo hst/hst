@@ -101,18 +101,24 @@ impl Debug for Stop {
     }
 }
 
-impl<E> Initials<E> for Stop {
+impl<'a, E> Initials<'a, E> for Stop
+where
+    E: 'a,
+{
     type Initials = std::iter::Empty<E>;
 
-    fn initials(&self) -> Self::Initials {
+    fn initials(&'a self) -> Self::Initials {
         std::iter::empty()
     }
 }
 
-impl<E, P> Afters<E, P> for Stop {
+impl<'a, E, P> Afters<'a, E, P> for Stop
+where
+    P: 'a,
+{
     type Afters = std::iter::Empty<P>;
 
-    fn afters(&self, _initial: &E) -> Option<Self::Afters> {
+    fn afters(&'a self, _initial: &E) -> Option<Self::Afters> {
         None
     }
 }
@@ -161,25 +167,25 @@ impl Debug for Skip {
     }
 }
 
-impl<E> Initials<E> for Skip
+impl<'a, E> Initials<'a, E> for Skip
 where
-    E: From<Tick>,
+    E: From<Tick> + 'a,
 {
     type Initials = std::iter::Once<E>;
 
-    fn initials(&self) -> Self::Initials {
+    fn initials(&'a self) -> Self::Initials {
         std::iter::once(tick())
     }
 }
 
-impl<E, P> Afters<E, P> for Skip
+impl<'a, E, P> Afters<'a, E, P> for Skip
 where
     E: Eq + From<Tick>,
-    P: From<Stop>,
+    P: From<Stop> + 'a,
 {
     type Afters = std::iter::Once<P>;
 
-    fn afters(&self, initial: &E) -> Option<Self::Afters> {
+    fn afters(&'a self, initial: &E) -> Option<Self::Afters> {
         if *initial == Tick.into() {
             Some(std::iter::once(stop()))
         } else {

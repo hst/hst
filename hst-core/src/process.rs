@@ -20,27 +20,27 @@ use std::hash::Hash;
 use std::iter::FromIterator;
 
 /// Returns the events that the process is willing to perform.
-pub trait Initials<E> {
-    type Initials;
-    fn initials(&self) -> Self::Initials;
+pub trait Initials<'a, E> {
+    type Initials: 'a;
+    fn initials(&'a self) -> Self::Initials;
 }
 
 /// Returns how the process behaves after one of its initial events is performed.  The result is
 /// a _set_ of processes; if there are multiple processes in the set, then there is nondeterminism,
 /// and the process will behave like one of the elements arbitrarily.
-pub trait Afters<E, P> {
-    type Afters;
-    fn afters(&self, initial: &E) -> Option<Self::Afters>;
+pub trait Afters<'a, E, P> {
+    type Afters: 'a;
+    fn afters(&'a self, initial: &E) -> Option<Self::Afters>;
 }
 
 /// Returns all of the outgoing transitions for the process.  This is a map where the keys are the
 /// initial events of the process, and the values are a collection of the after processes for each
 /// of those events.
-pub fn transitions<'a, E, P, C>(process: &P) -> HashMap<E, C>
+pub fn transitions<'a, E, P, C>(process: &'a P) -> HashMap<E, C>
 where
     E: Eq + Hash,
-    P: Initials<E>,
-    P: Afters<E, P>,
+    P: Initials<'a, E>,
+    P: Afters<'a, E, P>,
     C: FromIterator<P>,
     P::Initials: Iterator<Item = E>,
     P::Afters: Iterator<Item = P>,
