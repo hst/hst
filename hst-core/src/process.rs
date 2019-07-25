@@ -42,15 +42,14 @@ where
     P: Initials<E>,
     P: Afters<E, P>,
     C: FromIterator<P>,
-    P::Initials: IntoIterator<Item = E>,
-    P::Afters: IntoIterator<Item = P>,
+    P::Initials: Iterator<Item = E>,
+    P::Afters: Iterator<Item = P>,
 {
     let mut transitions = HashMap::new();
     for initial in process.initials() {
         let afters = process
             .afters(&initial)
             .expect("No afters for initial")
-            .into_iter()
             .collect();
         transitions.insert(initial, afters);
     }
@@ -71,15 +70,15 @@ mod tests {
     /// an event is in the `initials` set, `afters` must return a process iterator with at least
     /// one element.  If an event is not in the `initials` set, `afters` must return `None`.
     fn initials_consistent_with_afters(process: CSP<TestEvent>, initial: TestEvent) {
-        let in_initials = process.initials().into_iter().any(|e| e == initial);
+        let in_initials = process.initials().any(|e| e == initial);
         let afters = process.afters(&initial);
         if in_initials {
-            let afters = afters.expect(&format!(
+            let mut afters = afters.expect(&format!(
                 "Afters can't be None for initial event {}",
                 initial
             ));
             assert!(
-                afters.into_iter().next().is_some(),
+                afters.next().is_some(),
                 "Afters can't be empty for initial event {}",
                 initial
             );

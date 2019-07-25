@@ -103,36 +103,6 @@ pub enum CSPIter<Stop, Skip, Prefix, InternalChoice> {
     InternalChoice(InternalChoice),
 }
 
-#[doc(hidden)]
-pub enum CSPIntoIter<Stop, Skip, Prefix, InternalChoice> {
-    Stop(Stop),
-    Skip(Skip),
-    Prefix(Prefix),
-    InternalChoice(InternalChoice),
-}
-
-impl<E, Stop, Skip, Prefix, InternalChoice> IntoIterator
-    for CSPIntoIter<Stop, Skip, Prefix, InternalChoice>
-where
-    Stop: IntoIterator<Item = E>,
-    Skip: IntoIterator<Item = E>,
-    Prefix: IntoIterator<Item = E>,
-    InternalChoice: IntoIterator<Item = E>,
-{
-    type Item = E;
-    type IntoIter =
-        CSPIter<Stop::IntoIter, Skip::IntoIter, Prefix::IntoIter, InternalChoice::IntoIter>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        match self {
-            CSPIntoIter::Stop(this) => CSPIter::Stop(this.into_iter()),
-            CSPIntoIter::Skip(this) => CSPIter::Skip(this.into_iter()),
-            CSPIntoIter::Prefix(this) => CSPIter::Prefix(this.into_iter()),
-            CSPIntoIter::InternalChoice(this) => CSPIter::InternalChoice(this.into_iter()),
-        }
-    }
-}
-
 impl<E, P> Initials<E> for CSPSig<E, P>
 where
     Stop: Initials<E>,
@@ -140,7 +110,7 @@ where
     Prefix<E, P>: Initials<E>,
     InternalChoice<P>: Initials<E>,
 {
-    type Initials = CSPIntoIter<
+    type Initials = CSPIter<
         <Stop as Initials<E>>::Initials,
         <Skip as Initials<E>>::Initials,
         <Prefix<E, P> as Initials<E>>::Initials,
@@ -149,10 +119,10 @@ where
 
     fn initials(&self) -> Self::Initials {
         match self {
-            CSPSig::Stop(this) => CSPIntoIter::Stop(this.initials()),
-            CSPSig::Skip(this) => CSPIntoIter::Skip(this.initials()),
-            CSPSig::Prefix(this) => CSPIntoIter::Prefix(this.initials()),
-            CSPSig::InternalChoice(this) => CSPIntoIter::InternalChoice(this.initials()),
+            CSPSig::Stop(this) => CSPIter::Stop(this.initials()),
+            CSPSig::Skip(this) => CSPIter::Skip(this.initials()),
+            CSPSig::Prefix(this) => CSPIter::Prefix(this.initials()),
+            CSPSig::InternalChoice(this) => CSPIter::InternalChoice(this.initials()),
         }
     }
 }
@@ -164,7 +134,7 @@ where
     Prefix<E, P>: Afters<E, P>,
     InternalChoice<P>: Afters<E, P>,
 {
-    type Afters = CSPIntoIter<
+    type Afters = CSPIter<
         <Stop as Afters<E, P>>::Afters,
         <Skip as Afters<E, P>>::Afters,
         <Prefix<E, P> as Afters<E, P>>::Afters,
@@ -173,10 +143,10 @@ where
 
     fn afters(&self, initial: &E) -> Option<Self::Afters> {
         match self {
-            CSPSig::Stop(this) => this.afters(initial).map(CSPIntoIter::Stop),
-            CSPSig::Skip(this) => this.afters(initial).map(CSPIntoIter::Skip),
-            CSPSig::Prefix(this) => this.afters(initial).map(CSPIntoIter::Prefix),
-            CSPSig::InternalChoice(this) => this.afters(initial).map(CSPIntoIter::InternalChoice),
+            CSPSig::Stop(this) => this.afters(initial).map(CSPIter::Stop),
+            CSPSig::Skip(this) => this.afters(initial).map(CSPIter::Skip),
+            CSPSig::Prefix(this) => this.afters(initial).map(CSPIter::Prefix),
+            CSPSig::InternalChoice(this) => this.afters(initial).map(CSPIter::InternalChoice),
         }
     }
 }
