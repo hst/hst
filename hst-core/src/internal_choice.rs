@@ -18,6 +18,7 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use auto_enums::enum_derive;
 use smallvec::smallvec;
 use smallvec::SmallVec;
 
@@ -88,19 +89,27 @@ where
     }
 }
 
+#[doc(hidden)]
+#[enum_derive(Iterator)]
+pub enum InternalChoiceAfters<Tau, NotTau> {
+    Tau(Tau),
+    NotTau(NotTau),
+}
+
 impl<'a, E, P> Afters<'a, E, P> for InternalChoice<P>
 where
     E: Eq + From<Tau>,
     P: Clone + 'a,
 {
-    type Afters = std::iter::Cloned<std::slice::Iter<'a, P>>;
+    type Afters =
+        InternalChoiceAfters<std::iter::Cloned<std::slice::Iter<'a, P>>, std::iter::Empty<P>>;
 
-    fn afters(&'a self, initial: &E) -> Option<Self::Afters> {
+    fn afters(&'a self, initial: &E) -> Self::Afters {
         // afters(⊓ Ps, τ) = Ps
         if *initial == tau() {
-            Some(self.0.iter().cloned())
+            InternalChoiceAfters::Tau(self.0.iter().cloned())
         } else {
-            None
+            InternalChoiceAfters::NotTau(std::iter::empty())
         }
     }
 }

@@ -75,7 +75,7 @@ where
 {
     type Afters = <CSPSig<E, CSP<E>> as Afters<'a, E, P>>::Afters;
 
-    fn afters(&'a self, initial: &E) -> Option<Self::Afters> {
+    fn afters(&'a self, initial: &E) -> Self::Afters {
         self.0.afters(initial)
     }
 }
@@ -141,12 +141,12 @@ where
         <InternalChoice<P> as Afters<'a, E, P>>::Afters,
     >;
 
-    fn afters(&'a self, initial: &E) -> Option<Self::Afters> {
+    fn afters(&'a self, initial: &E) -> Self::Afters {
         match self {
-            CSPSig::Stop(this) => this.afters(initial).map(CSPIter::Stop),
-            CSPSig::Skip(this) => this.afters(initial).map(CSPIter::Skip),
-            CSPSig::Prefix(this) => this.afters(initial).map(CSPIter::Prefix),
-            CSPSig::InternalChoice(this) => this.afters(initial).map(CSPIter::InternalChoice),
+            CSPSig::Stop(this) => CSPIter::Stop(this.afters(initial)),
+            CSPSig::Skip(this) => CSPIter::Skip(this.afters(initial)),
+            CSPSig::Prefix(this) => CSPIter::Prefix(this.afters(initial)),
+            CSPSig::InternalChoice(this) => CSPIter::InternalChoice(this.afters(initial)),
         }
     }
 }

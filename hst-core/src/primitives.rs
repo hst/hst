@@ -18,6 +18,8 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use auto_enums::enum_derive;
+
 use crate::process::Afters;
 use crate::process::Initials;
 
@@ -118,8 +120,8 @@ where
 {
     type Afters = std::iter::Empty<P>;
 
-    fn afters(&'a self, _initial: &E) -> Option<Self::Afters> {
-        None
+    fn afters(&'a self, _initial: &E) -> Self::Afters {
+        std::iter::empty()
     }
 }
 
@@ -178,18 +180,25 @@ where
     }
 }
 
+#[doc(hidden)]
+#[enum_derive(Iterator)]
+pub enum SkipAfters<Tick, NotTick> {
+    Tick(Tick),
+    NotTick(NotTick),
+}
+
 impl<'a, E, P> Afters<'a, E, P> for Skip
 where
     E: Eq + From<Tick>,
     P: From<Stop> + 'a,
 {
-    type Afters = std::iter::Once<P>;
+    type Afters = SkipAfters<std::iter::Once<P>, std::iter::Empty<P>>;
 
-    fn afters(&'a self, initial: &E) -> Option<Self::Afters> {
+    fn afters(&'a self, initial: &E) -> Self::Afters {
         if *initial == Tick.into() {
-            Some(std::iter::once(stop()))
+            SkipAfters::Tick(std::iter::once(stop()))
         } else {
-            None
+            SkipAfters::NotTick(std::iter::empty())
         }
     }
 }

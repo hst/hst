@@ -18,6 +18,8 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use auto_enums::enum_derive;
+
 use crate::process::Afters;
 use crate::process::Initials;
 
@@ -62,19 +64,26 @@ where
     }
 }
 
+#[doc(hidden)]
+#[enum_derive(Iterator)]
+pub enum PrefixAfters<Initial, NotInitial> {
+    Initial(Initial),
+    NotInitial(NotInitial),
+}
+
 impl<'a, E, P> Afters<'a, E, P> for Prefix<E, P>
 where
     E: Eq,
     P: Clone + 'a,
 {
-    type Afters = std::iter::Once<P>;
+    type Afters = PrefixAfters<std::iter::Once<P>, std::iter::Empty<P>>;
 
-    fn afters(&'a self, initial: &E) -> Option<Self::Afters> {
+    fn afters(&'a self, initial: &E) -> Self::Afters {
         // afters(a → P, a) = P
         if *initial == self.0 {
-            Some(std::iter::once(self.1.clone()))
+            PrefixAfters::Initial(std::iter::once(self.1.clone()))
         } else {
-            None
+            PrefixAfters::NotInitial(std::iter::empty())
         }
     }
 }

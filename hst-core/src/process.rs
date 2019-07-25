@@ -30,7 +30,7 @@ pub trait Initials<'a, E> {
 /// and the process will behave like one of the elements arbitrarily.
 pub trait Afters<'a, E, P> {
     type Afters: 'a;
-    fn afters(&'a self, initial: &E) -> Option<Self::Afters>;
+    fn afters(&'a self, initial: &E) -> Self::Afters;
 }
 
 /// Returns all of the outgoing transitions for the process.  This is a map where the keys are the
@@ -47,10 +47,7 @@ where
 {
     let mut transitions = HashMap::new();
     for initial in process.initials() {
-        let afters = process
-            .afters(&initial)
-            .expect("No afters for initial")
-            .collect();
+        let afters = process.afters(&initial).collect();
         transitions.insert(initial, afters);
     }
     transitions
@@ -67,16 +64,12 @@ mod tests {
 
     #[proptest]
     /// The `initials` and `afters` methods for a process must be consistent with each other.  If
-    /// an event is in the `initials` set, `afters` must return a process iterator with at least
-    /// one element.  If an event is not in the `initials` set, `afters` must return `None`.
+    /// an event is in the `initials` set, the `afters` iterator must contain at least one element.
+    /// If an event is not in the `initials` set, the `afters` iterator must be empty.
     fn initials_consistent_with_afters(process: CSP<TestEvent>, initial: TestEvent) {
         let in_initials = process.initials().any(|e| e == initial);
-        let afters = process.afters(&initial);
+        let mut afters = process.afters(&initial);
         if in_initials {
-            let mut afters = afters.expect(&format!(
-                "Afters can't be None for initial event {}",
-                initial
-            ));
             assert!(
                 afters.next().is_some(),
                 "Afters can't be empty for initial event {}",
@@ -84,8 +77,8 @@ mod tests {
             );
         } else {
             assert!(
-                afters.is_none(),
-                "Afters must be None for non-initial event {}",
+                afters.next().is_none(),
+                "Afters must be empty for non-initial event {}",
                 initial
             );
         }
