@@ -160,37 +160,44 @@ mod proptest_support {
     use proptest::prop_oneof;
     use proptest::strategy::BoxedStrategy;
     use proptest::strategy::Just;
+    use proptest::strategy::MapInto;
     use proptest::strategy::Strategy;
 
     use crate::internal_choice::internal_choice;
     use crate::prefix::prefix;
     use crate::primitives::skip;
     use crate::primitives::stop;
-    use crate::primitives::tau;
-    use crate::primitives::tick;
-    use crate::primitives::Tau;
-    use crate::primitives::Tick;
+    use crate::test_support::NumberedEvent;
+    use crate::test_support::TestEvent;
+
+    pub trait NameableEvents {
+        type Strategy: Strategy;
+        fn nameable_events() -> Self::Strategy;
+    }
+
+    impl NameableEvents for TestEvent {
+        type Strategy = MapInto<<NumberedEvent as Arbitrary>::Strategy, TestEvent>;
+        fn nameable_events() -> Self::Strategy {
+            any::<NumberedEvent>().prop_map_into()
+        }
+    }
 
     impl<E> Arbitrary for CSP<E>
     where
-        E: Arbitrary + Clone + Eq + Display + From<Tau> + From<Tick> + 'static,
-        E::Strategy: Clone,
+        E: Clone + Debug + Display + NameableEvents + 'static,
+        E::Strategy: Strategy<Value = E>,
     {
         type Parameters = ();
         type Strategy = BoxedStrategy<CSP<E>>;
 
         fn arbitrary_with(_args: ()) -> Self::Strategy {
             let leaf = prop_oneof![Just(stop()), Just(skip())];
-            let nameable_events = any::<E>()
-                .prop_filter("Cannot use τ or ✔ when constructing processes", |e| {
-                    *e != tau() && *e != tick()
-                });
             leaf.prop_recursive(8, 256, 10, move |inner| {
                 prop_oneof![
                     // We use NumberedEvent here because you shouldn't really create processes that
                     // explicitly refer to Tau and Tick; those should only be created as part of
                     // the CSP operators.
-                    (nameable_events.clone(), inner.clone())
+                    (E::nameable_events(), inner.clone())
                         .prop_map(|(initial, after)| prefix(initial.into(), after)),
                     (inner.clone(), inner.clone()).prop_map(|(p, q)| internal_choice(p, q)),
                 ]
