@@ -157,6 +157,7 @@ mod proptest_support {
 
     use proptest::arbitrary::any;
     use proptest::arbitrary::Arbitrary;
+    use proptest::collection::vec;
     use proptest::prop_oneof;
     use proptest::strategy::BoxedStrategy;
     use proptest::strategy::Just;
@@ -164,6 +165,7 @@ mod proptest_support {
     use proptest::strategy::Strategy;
 
     use crate::internal_choice::internal_choice;
+    use crate::internal_choice::replicated_internal_choice;
     use crate::prefix::prefix;
     use crate::primitives::skip;
     use crate::primitives::stop;
@@ -192,7 +194,7 @@ mod proptest_support {
 
         fn arbitrary_with(_args: ()) -> Self::Strategy {
             let leaf = prop_oneof![Just(stop()), Just(skip())];
-            leaf.prop_recursive(8, 256, 10, move |inner| {
+            leaf.prop_recursive(8, 256, 100, move |inner| {
                 prop_oneof![
                     // We use NumberedEvent here because you shouldn't really create processes that
                     // explicitly refer to Tau and Tick; those should only be created as part of
@@ -200,6 +202,7 @@ mod proptest_support {
                     (E::nameable_events(), inner.clone())
                         .prop_map(|(initial, after)| prefix(initial.into(), after)),
                     (inner.clone(), inner.clone()).prop_map(|(p, q)| internal_choice(p, q)),
+                    vec(inner.clone(), 1..100).prop_map(replicated_internal_choice),
                 ]
             })
             .boxed()

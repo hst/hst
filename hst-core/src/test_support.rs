@@ -20,6 +20,7 @@ use auto_enums::enum_derive;
 use auto_from::From;
 use proptest::arbitrary::any;
 use proptest::arbitrary::Arbitrary;
+use proptest::collection::vec;
 use proptest::prop_oneof;
 use proptest::strategy::BoxedStrategy;
 use proptest::strategy::Just;
@@ -103,5 +104,25 @@ impl Arbitrary for TestEvent {
             any::<NumberedEvent>().prop_map_into(),
         ]
         .boxed()
+    }
+}
+
+/// A proptest helper type that generates a non-empty vector of values.
+#[derive(Clone, Debug)]
+pub struct NonemptyVec<T> {
+    pub vec: Vec<T>,
+}
+
+impl<T> Arbitrary for NonemptyVec<T>
+where
+    T: Arbitrary + Clone + Debug + 'static,
+{
+    type Parameters = ();
+    type Strategy = BoxedStrategy<NonemptyVec<T>>;
+
+    fn arbitrary_with(_args: ()) -> Self::Strategy {
+        vec(any::<T>(), 1..100)
+            .prop_map(|vec| NonemptyVec { vec })
+            .boxed()
     }
 }
