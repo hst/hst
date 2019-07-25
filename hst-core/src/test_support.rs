@@ -20,9 +20,13 @@ use auto_enums::enum_derive;
 use auto_from::From;
 use proptest::arbitrary::any;
 use proptest::arbitrary::Arbitrary;
+use proptest::prop_oneof;
 use proptest::strategy::BoxedStrategy;
+use proptest::strategy::Just;
 use proptest::strategy::Strategy;
 
+use crate::primitives::tau;
+use crate::primitives::tick;
 use crate::primitives::Tau;
 use crate::primitives::Tick;
 
@@ -93,9 +97,11 @@ impl Arbitrary for TestEvent {
     type Strategy = BoxedStrategy<TestEvent>;
 
     fn arbitrary_with(_args: ()) -> Self::Strategy {
-        // Note that we don't generate Tau or Tick as values for TestEvent; those built-in events
-        // should never be mentioned by name in processes, and should only come about because of
-        // the operational semantics of the CSP operators.
-        any::<NumberedEvent>().prop_map_into().boxed()
+        prop_oneof![
+            Just(tau()),
+            Just(tick()),
+            any::<NumberedEvent>().prop_map_into(),
+        ]
+        .boxed()
     }
 }

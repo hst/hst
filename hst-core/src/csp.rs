@@ -196,22 +196,31 @@ mod proptest_support {
     use crate::prefix::prefix;
     use crate::primitives::skip;
     use crate::primitives::stop;
+    use crate::primitives::tau;
+    use crate::primitives::tick;
+    use crate::primitives::Tau;
+    use crate::primitives::Tick;
 
     impl<E> Arbitrary for CSP<E>
     where
-        E: Arbitrary + Clone + Display + 'static,
+        E: Arbitrary + Clone + Eq + Display + From<Tau> + From<Tick> + 'static,
+        E::Strategy: Clone,
     {
         type Parameters = ();
         type Strategy = BoxedStrategy<CSP<E>>;
 
         fn arbitrary_with(_args: ()) -> Self::Strategy {
             let leaf = prop_oneof![Just(stop()), Just(skip())];
-            leaf.prop_recursive(8, 256, 10, |inner| {
+            let nameable_events = any::<E>()
+                .prop_filter("Cannot use τ or ✔ when constructing processes", |e| {
+                    *e != tau() && *e != tick()
+                });
+            leaf.prop_recursive(8, 256, 10, move |inner| {
                 prop_oneof![
                     // We use NumberedEvent here because you shouldn't really create processes that
                     // explicitly refer to Tau and Tick; those should only be created as part of
                     // the CSP operators.
-                    (any::<E>(), inner.clone())
+                    (nameable_events.clone(), inner.clone())
                         .prop_map(|(initial, after)| prefix(initial.into(), after)),
                     (inner.clone(), inner.clone()).prop_map(|(p, q)| internal_choice(p, q)),
                 ]

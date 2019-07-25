@@ -88,10 +88,12 @@ mod prefix_tests {
 
     use crate::csp::CSP;
     use crate::process::transitions;
+    use crate::test_support::NumberedEvent;
     use crate::test_support::TestEvent;
 
     #[proptest]
-    fn check_prefix_transitions(initial: TestEvent, after: CSP<TestEvent>) {
+    fn check_prefix_transitions(initial: NumberedEvent, after: CSP<TestEvent>) {
+        let initial = TestEvent::from(initial);
         let process = prefix(initial.clone(), after.clone());
         let transitions = transitions(&process);
         assert_eq!(transitions, hashmap! { initial => vec![after] });
