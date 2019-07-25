@@ -56,3 +56,39 @@ where
     }
     transitions
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use proptest_attr_macro::proptest;
+
+    use crate::csp::CSP;
+    use crate::test_support::TestEvent;
+
+    #[proptest]
+    /// The `initials` and `afters` methods for a process must be consistent with each other.  If
+    /// an event is in the `initials` set, `afters` must return a process iterator with at least
+    /// one element.  If an event is not in the `initials` set, `afters` must return `None`.
+    fn initials_consistent_with_afters(process: CSP<TestEvent>, initial: TestEvent) {
+        let in_initials = process.initials().into_iter().any(|e| e == initial);
+        let afters = process.afters(&initial);
+        if in_initials {
+            let afters = afters.expect(&format!(
+                "Afters can't be None for initial event {}",
+                initial
+            ));
+            assert!(
+                afters.into_iter().next().is_some(),
+                "Afters can't be empty for initial event {}",
+                initial
+            );
+        } else {
+            assert!(
+                afters.is_none(),
+                "Afters must be None for non-initial event {}",
+                initial
+            );
+        }
+    }
+}
