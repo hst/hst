@@ -26,6 +26,8 @@ use crate::internal_choice::InternalChoice;
 use crate::prefix::Prefix;
 use crate::primitives::Skip;
 use crate::primitives::Stop;
+use crate::primitives::Tau;
+use crate::primitives::Tick;
 use crate::process::Afters;
 use crate::process::Initials;
 
@@ -60,23 +62,23 @@ where
 
 impl<'a, E> Initials<'a, E> for CSP<E>
 where
-    CSPSig<E, CSP<E>>: Initials<'a, E>,
+    E: Clone + From<Tau> + From<Tick> + 'a,
 {
-    type Initials = <CSPSig<E, CSP<E>> as Initials<'a, E>>::Initials;
+    type Initials = Box<dyn Iterator<Item = E> + 'a>;
 
     fn initials(&'a self) -> Self::Initials {
-        self.0.initials()
+        Box::new(self.0.initials())
     }
 }
 
-impl<'a, E, P> Afters<'a, E, P> for CSP<E>
+impl<'a, E> Afters<'a, E, CSP<E>> for CSP<E>
 where
-    CSPSig<E, CSP<E>>: Afters<'a, E, P>,
+    E: Clone + Eq + From<Tau> + From<Tick> + 'a,
 {
-    type Afters = <CSPSig<E, CSP<E>> as Afters<'a, E, P>>::Afters;
+    type Afters = Box<dyn Iterator<Item = CSP<E>> + 'a>;
 
     fn afters(&'a self, initial: &E) -> Self::Afters {
-        self.0.afters(initial)
+        Box::new(self.0.afters(initial))
     }
 }
 
