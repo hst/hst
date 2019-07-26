@@ -81,7 +81,6 @@ impl<'a, E, P> Initials<'a, E> for ExternalChoice<P>
 where
     E: 'a,
     P: Initials<'a, E>,
-    P::Initials: Iterator<Item = E>,
 {
     // Need the box since we can't name the type that it contains :-(
     type Initials = Box<dyn Iterator<Item = E> + 'a>;
@@ -103,7 +102,6 @@ where
     E: Clone + Eq + From<Tau> + 'a,
     P: Clone + From<ExternalChoice<P>> + 'a,
     P: Afters<'a, E, P>,
-    P::Afters: Iterator<Item = P>,
 {
     type Afters = Box<dyn Iterator<Item = P> + 'a>;
 

@@ -21,7 +21,7 @@ use std::iter::FromIterator;
 
 /// Returns the events that the process is willing to perform.
 pub trait Initials<'a, E> {
-    type Initials: 'a;
+    type Initials: Iterator<Item = E> + 'a;
     fn initials(&'a self) -> Self::Initials;
 }
 
@@ -29,7 +29,7 @@ pub trait Initials<'a, E> {
 /// a _set_ of processes; if there are multiple processes in the set, then there is nondeterminism,
 /// and the process will behave like one of the elements arbitrarily.
 pub trait Afters<'a, E, P> {
-    type Afters: 'a;
+    type Afters: Iterator<Item = P> + 'a;
     fn afters(&'a self, initial: &E) -> Self::Afters;
 }
 
@@ -42,8 +42,6 @@ where
     P: Initials<'a, E>,
     P: Afters<'a, E, P>,
     C: FromIterator<P>,
-    P::Initials: Iterator<Item = E>,
-    P::Afters: Iterator<Item = P>,
 {
     let mut transitions = HashMap::new();
     for initial in process.initials() {
