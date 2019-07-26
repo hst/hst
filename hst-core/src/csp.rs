@@ -22,6 +22,7 @@ use std::rc::Rc;
 use auto_enums::enum_derive;
 use auto_from::From;
 
+use crate::external_choice::ExternalChoice;
 use crate::internal_choice::InternalChoice;
 use crate::prefix::Prefix;
 use crate::primitives::Skip;
@@ -93,15 +94,18 @@ pub enum CSPSig<E, P> {
     #[doc(hidden)]
     Prefix(Prefix<E, P>),
     #[doc(hidden)]
+    ExternalChoice(ExternalChoice<P>),
+    #[doc(hidden)]
     InternalChoice(InternalChoice<P>),
 }
 
 #[doc(hidden)]
 #[enum_derive(Iterator)]
-pub enum CSPIter<Stop, Skip, Prefix, InternalChoice> {
+pub enum CSPIter<Stop, Skip, Prefix, ExternalChoice, InternalChoice> {
     Stop(Stop),
     Skip(Skip),
     Prefix(Prefix),
+    ExternalChoice(ExternalChoice),
     InternalChoice(InternalChoice),
 }
 
@@ -110,12 +114,14 @@ where
     Stop: Initials<'a, E>,
     Skip: Initials<'a, E>,
     Prefix<E, P>: Initials<'a, E>,
+    ExternalChoice<P>: Initials<'a, E>,
     InternalChoice<P>: Initials<'a, E>,
 {
     type Initials = CSPIter<
         <Stop as Initials<'a, E>>::Initials,
         <Skip as Initials<'a, E>>::Initials,
         <Prefix<E, P> as Initials<'a, E>>::Initials,
+        <ExternalChoice<P> as Initials<'a, E>>::Initials,
         <InternalChoice<P> as Initials<'a, E>>::Initials,
     >;
 
@@ -124,6 +130,7 @@ where
             CSPSig::Stop(this) => CSPIter::Stop(this.initials()),
             CSPSig::Skip(this) => CSPIter::Skip(this.initials()),
             CSPSig::Prefix(this) => CSPIter::Prefix(this.initials()),
+            CSPSig::ExternalChoice(this) => CSPIter::ExternalChoice(this.initials()),
             CSPSig::InternalChoice(this) => CSPIter::InternalChoice(this.initials()),
         }
     }
@@ -134,12 +141,14 @@ where
     Stop: Afters<'a, E, P>,
     Skip: Afters<'a, E, P>,
     Prefix<E, P>: Afters<'a, E, P>,
+    ExternalChoice<P>: Afters<'a, E, P>,
     InternalChoice<P>: Afters<'a, E, P>,
 {
     type Afters = CSPIter<
         <Stop as Afters<'a, E, P>>::Afters,
         <Skip as Afters<'a, E, P>>::Afters,
         <Prefix<E, P> as Afters<'a, E, P>>::Afters,
+        <ExternalChoice<P> as Afters<'a, E, P>>::Afters,
         <InternalChoice<P> as Afters<'a, E, P>>::Afters,
     >;
 
@@ -148,6 +157,7 @@ where
             CSPSig::Stop(this) => CSPIter::Stop(this.afters(initial)),
             CSPSig::Skip(this) => CSPIter::Skip(this.afters(initial)),
             CSPSig::Prefix(this) => CSPIter::Prefix(this.afters(initial)),
+            CSPSig::ExternalChoice(this) => CSPIter::ExternalChoice(this.afters(initial)),
             CSPSig::InternalChoice(this) => CSPIter::InternalChoice(this.afters(initial)),
         }
     }
@@ -166,6 +176,7 @@ mod proptest_support {
     use proptest::strategy::MapInto;
     use proptest::strategy::Strategy;
 
+    use crate::external_choice::external_choice;
     use crate::internal_choice::internal_choice;
     use crate::internal_choice::replicated_internal_choice;
     use crate::prefix::prefix;
@@ -203,6 +214,7 @@ mod proptest_support {
                     // the CSP operators.
                     (E::nameable_events(), inner.clone())
                         .prop_map(|(initial, after)| prefix(initial.into(), after)),
+                    (inner.clone(), inner.clone()).prop_map(|(p, q)| external_choice(p, q)),
                     (inner.clone(), inner.clone()).prop_map(|(p, q)| internal_choice(p, q)),
                     vec(inner.clone(), 1..100).prop_map(replicated_internal_choice),
                 ]
