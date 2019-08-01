@@ -17,11 +17,14 @@
 
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::marker::PhantomData;
 
 use auto_enums::enum_derive;
 
 use crate::process::Afters;
+use crate::process::Cursor;
 use crate::process::Initials;
+use crate::process::Process;
 
 //-------------------------------------------------------------------------------------------------
 // Built-in CSP events
@@ -81,29 +84,67 @@ impl Debug for Tick {
 
 /// Constructs a new _Stop_ process.  This is the process that performs no actions (and prevents
 /// any other synchronized processes from performing any, either).
-pub fn stop<P: From<Stop>>() -> P {
-    Stop.into()
+pub fn stop<E, P: From<Stop<E>>>() -> P {
+    Stop(PhantomData).into()
 }
 
 /// The type of the [`Stop`] process.
 ///
 /// [`stop`]: fn.stop.html
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct Stop;
+pub struct Stop<E>(PhantomData<E>);
 
-impl Display for Stop {
+impl<E> Display for Stop<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.write_str("Stop")
     }
 }
 
-impl Debug for Stop {
+impl<E> Debug for Stop<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         (self as &dyn Display).fmt(f)
     }
 }
 
-impl<'a, E> Initials<'a, E> for Stop
+#[doc(hidden)]
+#[derive(Clone, Eq, Hash, PartialEq)]
+pub struct StopCursor<E>(PhantomData<E>);
+
+impl<E> Debug for StopCursor<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("StopCursor")
+    }
+}
+
+impl<E> Process<E> for Stop<E>
+where
+    E: Display + 'static,
+{
+    type Cursor = StopCursor<E>;
+
+    fn root(&self) -> Self::Cursor {
+        StopCursor(PhantomData)
+    }
+}
+
+impl<E> Cursor<E> for StopCursor<E>
+where
+    E: Display + 'static,
+{
+    fn events(&self) -> Box<dyn Iterator<Item = E>> {
+        Box::new(std::iter::empty())
+    }
+
+    fn can_perform(&self, _event: &E) -> bool {
+        false
+    }
+
+    fn perform(&mut self, event: &E) {
+        panic!("Stop cannot perform {}", event);
+    }
+}
+
+impl<'a, E> Initials<'a, E> for Stop<E>
 where
     E: 'a,
 {
@@ -114,7 +155,7 @@ where
     }
 }
 
-impl<'a, E, P> Afters<'a, E, P> for Stop
+impl<'a, E, P> Afters<'a, E, P> for Stop<E>
 where
     P: 'a,
 {
@@ -132,8 +173,24 @@ mod stop_tests {
     use std::collections::HashMap;
 
     use crate::csp::CSP;
+    use crate::process::satisfies_trace;
     use crate::process::transitions;
     use crate::test_support::TestEvent;
+
+    #[test]
+    fn check_stop_events() {
+        let process: Stop<Tau> = stop();
+        let events = process.root().events().collect::<Vec<_>>();
+        assert!(events.is_empty());
+    }
+
+    #[test]
+    fn check_stop_traces() {
+        let process: Stop<Tau> = stop();
+        let cursor = process.root();
+        assert!(satisfies_trace(cursor.clone(), vec![]));
+        assert!(!satisfies_trace(cursor.clone(), vec![tau()]));
+    }
 
     #[test]
     fn check_stop_transitions() {
@@ -190,7 +247,7 @@ pub enum SkipAfters<Tick, NotTick> {
 impl<'a, E, P> Afters<'a, E, P> for Skip
 where
     E: Eq + From<Tick>,
-    P: From<Stop> + 'a,
+    P: From<Stop<E>> + 'a,
 {
     type Afters = SkipAfters<std::iter::Once<P>, std::iter::Empty<P>>;
 

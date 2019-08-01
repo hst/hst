@@ -88,7 +88,7 @@ where
 #[derive(Clone, Eq, From, Hash, PartialEq)]
 pub enum CSPSig<E, P> {
     #[doc(hidden)]
-    Stop(Stop),
+    Stop(Stop<E>),
     #[doc(hidden)]
     Skip(Skip),
     #[doc(hidden)]
@@ -111,14 +111,14 @@ pub enum CSPIter<Stop, Skip, Prefix, ExternalChoice, InternalChoice> {
 
 impl<'a, E, P> Initials<'a, E> for CSPSig<E, P>
 where
-    Stop: Initials<'a, E>,
+    Stop<E>: Initials<'a, E>,
     Skip: Initials<'a, E>,
     Prefix<E, P>: Initials<'a, E>,
     ExternalChoice<P>: Initials<'a, E>,
     InternalChoice<P>: Initials<'a, E>,
 {
     type Initials = CSPIter<
-        <Stop as Initials<'a, E>>::Initials,
+        <Stop<E> as Initials<'a, E>>::Initials,
         <Skip as Initials<'a, E>>::Initials,
         <Prefix<E, P> as Initials<'a, E>>::Initials,
         <ExternalChoice<P> as Initials<'a, E>>::Initials,
@@ -138,14 +138,14 @@ where
 
 impl<'a, E, P> Afters<'a, E, P> for CSPSig<E, P>
 where
-    Stop: Afters<'a, E, P>,
+    Stop<E>: Afters<'a, E, P>,
     Skip: Afters<'a, E, P>,
     Prefix<E, P>: Afters<'a, E, P>,
     ExternalChoice<P>: Afters<'a, E, P>,
     InternalChoice<P>: Afters<'a, E, P>,
 {
     type Afters = CSPIter<
-        <Stop as Afters<'a, E, P>>::Afters,
+        <Stop<E> as Afters<'a, E, P>>::Afters,
         <Skip as Afters<'a, E, P>>::Afters,
         <Prefix<E, P> as Afters<'a, E, P>>::Afters,
         <ExternalChoice<P> as Afters<'a, E, P>>::Afters,
