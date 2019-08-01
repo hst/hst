@@ -204,29 +204,92 @@ mod stop_tests {
 
 /// Constructs a new _Skip_ process.  The process that performs Tick and then becomes Stop.  Used
 /// to indicate the end of a process that can be sequentially composed with something else.
-pub fn skip<P: From<Skip>>() -> P {
-    Skip.into()
+pub fn skip<E, P: From<Skip<E>>>() -> P {
+    Skip(PhantomData).into()
 }
 
 /// The type of the [`Skip`] process.
 ///
 /// [`skip`]: fn.stop.html
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct Skip;
+pub struct Skip<E>(PhantomData<E>);
 
-impl Display for Skip {
+impl<E> Display for Skip<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.write_str("Skip")
     }
 }
 
-impl Debug for Skip {
+impl<E> Debug for Skip<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         (self as &dyn Display).fmt(f)
     }
 }
 
-impl<'a, E> Initials<'a, E> for Skip
+#[doc(hidden)]
+#[derive(Clone, Eq, Hash, PartialEq)]
+pub struct SkipCursor<E> {
+    state: SkipState,
+    phantom: PhantomData<E>,
+}
+
+#[doc(hidden)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum SkipState {
+    BeforeTick,
+    AfterTick,
+}
+
+impl<E> Debug for SkipCursor<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "SkipCursor({:?})", self.state)
+    }
+}
+
+impl<E> Process<E> for Skip<E>
+where
+    E: Display + Eq + From<Tick> + 'static,
+{
+    type Cursor = SkipCursor<E>;
+
+    fn root(&self) -> Self::Cursor {
+        SkipCursor {
+            state: SkipState::BeforeTick,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<E> Cursor<E> for SkipCursor<E>
+where
+    E: Display + Eq + From<Tick> + 'static,
+{
+    fn events(&self) -> Box<dyn Iterator<Item = E>> {
+        match self.state {
+            SkipState::BeforeTick => Box::new(std::iter::once(tick())),
+            SkipState::AfterTick => Box::new(std::iter::empty()),
+        }
+    }
+
+    fn can_perform(&self, event: &E) -> bool {
+        match self.state {
+            SkipState::BeforeTick => *event == tick(),
+            SkipState::AfterTick => false,
+        }
+    }
+
+    fn perform(&mut self, event: &E) {
+        if self.state == SkipState::AfterTick {
+            panic!("Skip cannot perform {} after ✔", event);
+        }
+        if *event != tick() {
+            panic!("Skip cannot perform {}", event);
+        }
+        self.state = SkipState::AfterTick;
+    }
+}
+
+impl<'a, E> Initials<'a, E> for Skip<E>
 where
     E: From<Tick> + 'a,
 {
@@ -244,7 +307,7 @@ pub enum SkipAfters<Tick, NotTick> {
     NotTick(NotTick),
 }
 
-impl<'a, E, P> Afters<'a, E, P> for Skip
+impl<'a, E, P> Afters<'a, E, P> for Skip<E>
 where
     E: Eq + From<Tick>,
     P: From<Stop<E>> + 'a,
@@ -269,8 +332,27 @@ mod skip_tests {
     use maplit::hashmap;
 
     use crate::csp::CSP;
+    use crate::process::satisfies_trace;
     use crate::process::transitions;
     use crate::test_support::TestEvent;
+
+    #[test]
+    fn check_skip_events() {
+        let process: Skip<TestEvent> = skip();
+        let mut cursor = process.root();
+        assert_eq!(cursor.events().collect::<Vec<_>>(), vec![tick()]);
+        cursor.perform(&tick());
+        assert!(cursor.events().collect::<Vec<_>>().is_empty());
+    }
+
+    #[test]
+    fn check_skip_traces() {
+        let process: Skip<TestEvent> = skip();
+        let cursor = process.root();
+        assert!(satisfies_trace(cursor.clone(), vec![tick()]));
+        assert!(!satisfies_trace(cursor.clone(), vec![tau()]));
+        assert!(!satisfies_trace(cursor.clone(), vec![tick(), tick()]));
+    }
 
     #[test]
     fn check_skip_transitions() {
