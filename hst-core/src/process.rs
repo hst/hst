@@ -19,6 +19,57 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
+/// A CSP process is defined by what events it's willing and able to communicate, and when.
+pub trait Process<E> {
+    /// A process's _cursor_ keeps track of a _current state_, which describes which events the
+    /// process is willing and able to communicate _now_.  After communicating one of those
+    /// available events, the cursor will move into a different state.
+    type Cursor: Cursor<E>;
+
+    /// Returns the _root cursor_ for this process.
+    fn root(&self) -> Self::Cursor;
+}
+
+/// Tracks the current state of a CSP process, which defines which events it's willing to perform
+/// now.
+pub trait Cursor<E> {
+    /// Returns the set of events that the process is willing to perform in its current state.
+    ///
+    /// (The result represents a _set_ of events, but to make it easier to implement this method,
+    /// the result is allowed to contain the same event multiple times.  If you need to have an
+    /// actual set, with events appearing once, it's your responsibility to dedup them.)
+    fn events(&self) -> Box<dyn Iterator<Item = E>>;
+
+    /// Returns whether the process is willing to perform a particular event in its current state.
+    ///
+    /// This is equivalent to the following, but can be more efficient for some process types:
+    ///
+    /// ``` ignore
+    /// self.events().any(|e| *e == event)
+    /// ```
+    fn can_perform(&self, event: &E) -> bool;
+
+    /// Updates the current state of the cursor to describe what the process would do after
+    /// performing a particular event.  Panics if the process is not willing to perform `event` in
+    /// its current state.
+    fn perform(&mut self, event: &E);
+}
+
+/// Returns whether a process satisfies a trace.
+pub fn satisfies_trace<C, E, I>(mut cursor: C, trace: I) -> bool
+where
+    C: Cursor<E>,
+    I: IntoIterator<Item = E>,
+{
+    for event in trace {
+        if !cursor.can_perform(&event) {
+            return false;
+        }
+        cursor.perform(&event);
+    }
+    true
+}
+
 /// Returns the events that the process is willing to perform.
 pub trait Initials<'a, E> {
     type Initials: Iterator<Item = E> + 'a;
