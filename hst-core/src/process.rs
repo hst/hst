@@ -38,7 +38,7 @@ pub trait Cursor<E> {
     /// (The result represents a _set_ of events, but to make it easier to implement this method,
     /// the result is allowed to contain the same event multiple times.  If you need to have an
     /// actual set, with events appearing once, it's your responsibility to dedup them.)
-    fn events(&self) -> Box<dyn Iterator<Item = E>>;
+    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a>;
 
     /// Returns whether the process is willing to perform a particular event in its current state.
     ///

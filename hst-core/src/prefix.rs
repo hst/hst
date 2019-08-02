@@ -35,7 +35,7 @@ pub fn prefix<E, P: From<Prefix<E, P>>>(initial: E, after: P) -> P {
 ///
 /// [`prefix`]: fn.prefix.html
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct Prefix<E, P>(E, P);
+pub struct Prefix<E, P>(pub(crate) E, pub(crate) P);
 
 impl<E: Display, P: Display> Display for Prefix<E, P> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -90,7 +90,7 @@ where
     E: Clone + Display + Eq + 'static,
     P: Cursor<E>,
 {
-    fn events(&self) -> Box<dyn Iterator<Item = E>> {
+    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
         match self.state {
             PrefixState::BeforeInitial => Box::new(std::iter::once(self.initial.clone())),
             PrefixState::AfterInitial => self.after.events(),
