@@ -17,6 +17,7 @@ pub mod csp;
 pub mod external_choice;
 pub mod internal_choice;
 pub mod iterators;
+pub mod possibilities;
 pub mod prefix;
 pub mod primitives;
 pub mod process;
