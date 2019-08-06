@@ -48,24 +48,79 @@ impl<E, C> Possibilities<E, C> {
 }
 
 #[cfg(test)]
-impl<E, C> Possibilities<E, C>
-where
-    C: Clone,
-{
-    pub fn possibilities<R>(&self) -> R
+mod test_support {
+    use super::*;
+
+    use std::collections::HashSet;
+
+    use maplit::hashset;
+
+    impl<E, C> Possibilities<E, C>
     where
-        R: std::iter::FromIterator<Vec<C>>,
+        C: Clone,
     {
-        self.possibilities
-            .iter()
-            .map(|possibility| {
-                possibility
-                    .iter()
-                    .filter(|idx| self.activated[**idx])
-                    .map(|idx| self.subcursors[*idx].clone())
-                    .collect()
-            })
-            .collect()
+        pub fn possibilities<R>(&self) -> R
+        where
+            R: std::iter::FromIterator<Vec<C>>,
+        {
+            self.possibilities
+                .iter()
+                .map(|possibility| {
+                    possibility
+                        .iter()
+                        .filter(|idx| self.activated[**idx])
+                        .map(|idx| self.subcursors[*idx].clone())
+                        .collect()
+                })
+                .collect()
+        }
+    }
+
+    #[derive(Clone, Debug, Eq, Hash, PartialEq)]
+    pub struct Event;
+
+    #[derive(Clone, Debug, Eq, Hash, PartialEq)]
+    pub enum TestCursor {
+        Before1,
+        After1,
+        Before2,
+        After2,
+    }
+
+    impl Cursor<Event> for TestCursor {
+        fn events<'a>(&'a self) -> Box<dyn Iterator<Item = Event> + 'a> {
+            match self {
+                TestCursor::Before1 | TestCursor::Before2 => Box::new(std::iter::once(Event)),
+                TestCursor::After1 | TestCursor::After2 => Box::new(std::iter::empty()),
+            }
+        }
+
+        fn can_perform(&self, _event: &Event) -> bool {
+            match self {
+                TestCursor::Before1 | TestCursor::Before2 => true,
+                TestCursor::After1 | TestCursor::After2 => false,
+            }
+        }
+
+        fn perform(&mut self, _event: &Event) {
+            match self {
+                TestCursor::Before1 => *self = TestCursor::After1,
+                TestCursor::Before2 => *self = TestCursor::After2,
+                _ => panic!("Cannot perform event"),
+            }
+        }
+    }
+
+    impl Possibilities<Event, TestCursor> {
+        pub fn verify_cannot_perform_event(&self) {
+            assert_eq!(self.events().collect::<HashSet<_>>(), hashset![]);
+            assert!(!self.can_perform(&Event));
+        }
+
+        pub fn verify_can_perform_event(&self) {
+            assert_eq!(self.events().collect::<HashSet<_>>(), hashset![Event]);
+            assert!(self.can_perform(&Event));
+        }
     }
 }
 
@@ -229,61 +284,16 @@ where
 }
 
 #[cfg(test)]
-mod piecewise_tests {
+mod perform_piecewise_tests {
+    use super::test_support::*;
     use super::*;
 
-    use std::collections::HashSet;
     use std::fmt::Debug;
     use std::iter::FromIterator;
 
     use maplit::hashset;
 
-    #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-    struct Event;
-
-    #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-    enum TestCursor {
-        Before1,
-        After1,
-        Before2,
-        After2,
-    }
-
-    impl Cursor<Event> for TestCursor {
-        fn events<'a>(&'a self) -> Box<dyn Iterator<Item = Event> + 'a> {
-            match self {
-                TestCursor::Before1 | TestCursor::Before2 => Box::new(std::iter::once(Event)),
-                TestCursor::After1 | TestCursor::After2 => Box::new(std::iter::empty()),
-            }
-        }
-
-        fn can_perform(&self, _event: &Event) -> bool {
-            match self {
-                TestCursor::Before1 | TestCursor::Before2 => true,
-                TestCursor::After1 | TestCursor::After2 => false,
-            }
-        }
-
-        fn perform(&mut self, _event: &Event) {
-            match self {
-                TestCursor::Before1 => *self = TestCursor::After1,
-                TestCursor::Before2 => *self = TestCursor::After2,
-                _ => panic!("Cannot perform event"),
-            }
-        }
-    }
-
     impl Possibilities<Event, TestCursor> {
-        fn verify_cannot_perform_event(&self) {
-            assert_eq!(self.events().collect::<HashSet<_>>(), hashset![]);
-            assert!(!self.can_perform(&Event));
-        }
-
-        fn verify_can_perform_event(&self) {
-            assert_eq!(self.events().collect::<HashSet<_>>(), hashset![Event]);
-            assert!(self.can_perform(&Event));
-        }
-
         fn perform_piecewise_and_verify<R>(&mut self, expected: R)
         where
             R: Debug + Eq + FromIterator<Vec<TestCursor>>,
@@ -349,6 +359,94 @@ mod piecewise_tests {
         possibilities.verify_can_perform_event();
         possibilities
             .perform_piecewise_and_verify(hashset![vec![TestCursor::After1, TestCursor::After2]]);
+        // After performing the event, we shouldn't be able to perform it anymore.
+        possibilities.verify_cannot_perform_event();
+    }
+}
+
+impl<E, C> Possibilities<E, C>
+where
+    C: Clone + Cursor<E>,
+{
+    /// Tries to have each subprocess perform `event`.  Any subprocesses that can't perform the
+    /// event are deactivated.
+    pub fn perform_all(&mut self, event: &E) {
+        let subcursor_count = self.subcursors.len();
+        for idx in 0..subcursor_count {
+            if self.activated[idx] {
+                if self.subcursors[idx].can_perform(event) {
+                    self.subcursors[idx].perform(event);
+                } else {
+                    unsafe { self.activated.set_unchecked(idx, false) };
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod perform_all_tests {
+    use super::test_support::*;
+    use super::*;
+
+    use std::fmt::Debug;
+    use std::iter::FromIterator;
+
+    use maplit::hashset;
+
+    impl Possibilities<Event, TestCursor> {
+        fn perform_all_and_verify<R>(&mut self, expected: R)
+        where
+            R: Debug + Eq + FromIterator<Vec<TestCursor>>,
+        {
+            self.perform_all(&Event);
+            assert_eq!(self.possibilities::<R>(), expected);
+        }
+    }
+
+    #[test]
+    fn check_empty() {
+        let possibilities = Possibilities::new(vec![]);
+        possibilities.verify_cannot_perform_event();
+    }
+
+    #[test]
+    fn check_one_before() {
+        let mut possibilities = Possibilities::new(vec![TestCursor::Before1]);
+        possibilities.verify_can_perform_event();
+        possibilities.perform_all_and_verify(hashset![vec![TestCursor::After1]]);
+        // After performing the event, we shouldn't be able to perform it anymore.
+        possibilities.verify_cannot_perform_event();
+    }
+
+    #[test]
+    fn check_one_after() {
+        let possibilities = Possibilities::new(vec![TestCursor::After1]);
+        possibilities.verify_cannot_perform_event();
+    }
+
+    #[test]
+    fn check_two_befores() {
+        let mut possibilities = Possibilities::new(vec![TestCursor::Before1, TestCursor::Before2]);
+        possibilities.verify_can_perform_event();
+        possibilities
+            .perform_all_and_verify(hashset![vec![TestCursor::After1, TestCursor::After2]]);
+
+        // After performing the event twice, we shouldn't be able to perform it anymore.
+        possibilities.verify_cannot_perform_event();
+    }
+
+    #[test]
+    fn check_two_afters() {
+        let possibilities = Possibilities::new(vec![TestCursor::After1, TestCursor::After2]);
+        possibilities.verify_cannot_perform_event();
+    }
+
+    #[test]
+    fn check_one_of_each() {
+        let mut possibilities = Possibilities::new(vec![TestCursor::After1, TestCursor::Before2]);
+        possibilities.verify_can_perform_event();
+        possibilities.perform_all_and_verify(hashset![vec![TestCursor::After2]]);
         // After performing the event, we shouldn't be able to perform it anymore.
         possibilities.verify_cannot_perform_event();
     }
