@@ -13,6 +13,7 @@
 // limitations under the License.
 // ------------------------------------------------------------------------------------------------
 
+use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use smallbitvec::SmallBitVec;
@@ -21,6 +22,7 @@ use crate::process::Cursor;
 
 /// A set of possible current states for a process, where each current state is defined by the
 /// current states of some subprocesses.
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Possibilities<E, C> {
     phantom: PhantomData<E>,
     subcursors: Vec<C>,
@@ -44,6 +46,15 @@ impl<E, C> Possibilities<E, C> {
             possibilities: vec![possibility],
             next_possibilities: Vec::new(),
         }
+    }
+}
+
+impl<E, C> Debug for Possibilities<E, C>
+where
+    C: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_list().entries(self.activated_subcursors()).finish()
     }
 }
 
@@ -129,7 +140,7 @@ type Possibility = Vec<usize>;
 
 impl<E, C> Possibilities<E, C> {
     /// Returns an iterator of the subcursors that are still activated.
-    fn activated_subcursors<'a>(&'a self) -> impl Iterator<Item = &C> + 'a {
+    pub fn activated_subcursors<'a>(&'a self) -> impl Iterator<Item = &C> + 'a {
         self.activated
             .iter()
             .zip(&self.subcursors)
