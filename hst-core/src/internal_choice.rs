@@ -287,10 +287,7 @@ mod internal_choice_tests {
         ]);
         assert_eq!(
             maximal_finite_traces(process.root()),
-            hashset! {
-                vec![tau(), a],
-                vec![tau(), b],
-            }
+            hashset! { vec![a], vec![b] }
         );
     }
 

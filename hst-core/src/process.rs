@@ -22,6 +22,9 @@ use std::hash::Hash;
 use std::iter::FromIterator;
 use std::ops::Add;
 
+use crate::primitives::tau;
+use crate::primitives::Tau;
+
 /// A CSP process is defined by what events it's willing and able to communicate, and when.
 pub trait Process<E> {
     /// A process's _cursor_ keeps track of a _current state_, which describes which events the
@@ -156,11 +159,12 @@ where
     }
 }
 
-/// Returns the maximal finite traces of a process.
+/// Returns the maximal finite traces of a process.  Note that traces only contain visible events,
+/// and never contain τ!
 pub fn maximal_finite_traces<C, E>(cursor: C) -> MaximalTraces<E>
 where
     C: Clone + Eq + Cursor<E>,
-    E: Clone + Eq + Hash,
+    E: Clone + Eq + From<Tau> + Hash,
 {
     fn subprocess<C, E>(
         result: &mut MaximalTraces<E>,
@@ -169,7 +173,7 @@ where
         current_trace: &mut Vec<E>,
     ) where
         C: Clone + Eq + Cursor<E>,
-        E: Clone + Eq + Hash,
+        E: Clone + Eq + From<Tau> + Hash,
     {
         // If `cursor` already appears earlier in the current trace, then we've found a cycle.
         if previous_cursors.contains(&cursor) {
@@ -191,9 +195,13 @@ where
         for initial in initials {
             let mut next_cursor = cursor.clone();
             next_cursor.perform(&initial);
-            current_trace.push(initial);
-            subprocess(result, next_cursor, previous_cursors, current_trace);
-            current_trace.pop();
+            if initial == tau() {
+                subprocess(result, next_cursor, previous_cursors, current_trace);
+            } else {
+                current_trace.push(initial);
+                subprocess(result, next_cursor, previous_cursors, current_trace);
+                current_trace.pop();
+            }
         }
         previous_cursors.pop();
     }
