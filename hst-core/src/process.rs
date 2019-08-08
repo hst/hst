@@ -16,6 +16,7 @@
 //! Defines several traits that CSP processes will probably implement.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
@@ -68,6 +69,60 @@ where
         cursor.perform(&event);
     }
     true
+}
+
+/// Returns the maximal finite traces of a process.
+pub fn maximal_finite_traces<C, E>(cursor: C) -> HashSet<Vec<E>>
+where
+    C: Clone + Eq + Cursor<E>,
+    E: Clone + Eq + Hash,
+{
+    fn subprocess<C, E>(
+        result: &mut HashSet<Vec<E>>,
+        cursor: C,
+        previous_cursors: &mut Vec<C>,
+        current_trace: &mut Vec<E>,
+    ) where
+        C: Clone + Eq + Cursor<E>,
+        E: Clone + Eq + Hash,
+    {
+        // If `cursor` already appears earlier in the current trace, then we've found a cycle.
+        if previous_cursors.contains(&cursor) {
+            result.insert(current_trace.clone());
+            return;
+        }
+
+        // If the current subprocess doesn't have any outgoing transitions, we've found the end of
+        // a finite trace.
+        let initials = cursor.events().collect::<HashSet<_>>();
+        if initials.is_empty() {
+            result.insert(current_trace.clone());
+            return;
+        }
+
+        // Otherwise recurse into the subprocesses we get by following each possible event from the
+        // current state.
+        previous_cursors.push(cursor.clone());
+        for initial in initials {
+            let mut next_cursor = cursor.clone();
+            next_cursor.perform(&initial);
+            current_trace.push(initial);
+            subprocess(result, next_cursor, previous_cursors, current_trace);
+            current_trace.pop();
+        }
+        previous_cursors.pop();
+    }
+
+    let mut result = HashSet::new();
+    let mut previous_cursors = Vec::new();
+    let mut current_trace = Vec::new();
+    subprocess(
+        &mut result,
+        cursor,
+        &mut previous_cursors,
+        &mut current_trace,
+    );
+    result
 }
 
 /// Returns the events that the process is willing to perform.

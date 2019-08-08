@@ -157,13 +157,13 @@ mod prefix_tests {
     use super::*;
 
     use maplit::hashmap;
+    use maplit::hashset;
     use proptest_attr_macro::proptest;
 
     use crate::csp::CSP;
     use crate::primitives::stop;
-    use crate::primitives::tau;
     use crate::primitives::Stop;
-    use crate::process::satisfies_trace;
+    use crate::process::maximal_finite_traces;
     use crate::process::transitions;
     use crate::test_support::NumberedEvent;
     use crate::test_support::TestEvent;
@@ -173,10 +173,8 @@ mod prefix_tests {
         let initial = TestEvent::from(initial);
         // TODO: Use CSP<TestEvent> once all operators implement Process
         let process = Prefix::<TestEvent, Stop<TestEvent>>(initial.clone(), stop());
-        let mut cursor = process.root();
-        assert_eq!(cursor.events().collect::<Vec<_>>(), vec![initial.clone()]);
-        cursor.perform(&initial);
-        assert!(cursor.events().collect::<Vec<_>>().is_empty());
+        let cursor = process.root();
+        assert_eq!(cursor.events().collect::<Vec<_>>(), vec![initial]);
     }
 
     #[proptest]
@@ -184,13 +182,10 @@ mod prefix_tests {
         let initial = TestEvent::from(initial);
         // TODO: Use CSP<TestEvent> once all operators implement Process
         let process = Prefix::<TestEvent, Stop<TestEvent>>(initial.clone(), stop());
-        let cursor = process.root();
-        assert!(satisfies_trace(cursor.clone(), vec![initial.clone()]));
-        assert!(!satisfies_trace(cursor.clone(), vec![tau()]));
-        assert!(!satisfies_trace(
-            cursor.clone(),
-            vec![initial.clone(), tau()]
-        ));
+        assert_eq!(
+            maximal_finite_traces(process.root()),
+            hashset! {vec![initial]}
+        );
     }
 
     #[proptest]

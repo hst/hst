@@ -249,6 +249,7 @@ mod internal_choice_tests {
     use super::*;
 
     use maplit::hashmap;
+    use maplit::hashset;
     use proptest_attr_macro::proptest;
 
     use crate::csp::CSP;
@@ -256,7 +257,7 @@ mod internal_choice_tests {
     use crate::primitives::stop;
     use crate::primitives::tau;
     use crate::primitives::Stop;
-    use crate::process::satisfies_trace;
+    use crate::process::maximal_finite_traces;
     use crate::process::transitions;
     use crate::test_support::NonemptyVec;
     use crate::test_support::NumberedEvent;
@@ -271,10 +272,8 @@ mod internal_choice_tests {
             Prefix::<TestEvent, Stop<TestEvent>>(a.clone(), stop()),
             Prefix::<TestEvent, Stop<TestEvent>>(b.clone(), stop()),
         ]);
-        let mut cursor = process.root();
+        let cursor = process.root();
         assert_eq!(cursor.events().collect::<Vec<_>>(), vec![tau()]);
-        cursor.perform(&tau());
-        assert_eq!(cursor.events().collect::<Vec<_>>(), vec![a, b]);
     }
 
     #[proptest]
@@ -286,11 +285,13 @@ mod internal_choice_tests {
             Prefix::<TestEvent, Stop<TestEvent>>(a.clone(), stop()),
             Prefix::<TestEvent, Stop<TestEvent>>(b.clone(), stop()),
         ]);
-        let cursor = process.root();
-        assert!(satisfies_trace(cursor.clone(), vec![tau(), a.clone()]));
-        assert!(satisfies_trace(cursor.clone(), vec![tau(), b.clone()]));
-        assert!(!satisfies_trace(cursor.clone(), vec![a.clone()]));
-        assert!(!satisfies_trace(cursor.clone(), vec![b.clone()]));
+        assert_eq!(
+            maximal_finite_traces(process.root()),
+            hashset! {
+                vec![tau(), a],
+                vec![tau(), b],
+            }
+        );
     }
 
     #[proptest]

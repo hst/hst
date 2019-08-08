@@ -172,8 +172,10 @@ mod stop_tests {
 
     use std::collections::HashMap;
 
+    use maplit::hashset;
+
     use crate::csp::CSP;
-    use crate::process::satisfies_trace;
+    use crate::process::maximal_finite_traces;
     use crate::process::transitions;
     use crate::test_support::TestEvent;
 
@@ -187,9 +189,7 @@ mod stop_tests {
     #[test]
     fn check_stop_traces() {
         let process: Stop<Tau> = stop();
-        let cursor = process.root();
-        assert!(satisfies_trace(cursor.clone(), vec![]));
-        assert!(!satisfies_trace(cursor.clone(), vec![tau()]));
+        assert_eq!(maximal_finite_traces(process.root()), hashset! {vec![]});
     }
 
     #[test]
@@ -330,28 +330,27 @@ mod skip_tests {
     use std::collections::HashMap;
 
     use maplit::hashmap;
+    use maplit::hashset;
 
     use crate::csp::CSP;
-    use crate::process::satisfies_trace;
+    use crate::process::maximal_finite_traces;
     use crate::process::transitions;
     use crate::test_support::TestEvent;
 
     #[test]
     fn check_skip_events() {
         let process: Skip<TestEvent> = skip();
-        let mut cursor = process.root();
+        let cursor = process.root();
         assert_eq!(cursor.events().collect::<Vec<_>>(), vec![tick()]);
-        cursor.perform(&tick());
-        assert!(cursor.events().collect::<Vec<_>>().is_empty());
     }
 
     #[test]
     fn check_skip_traces() {
         let process: Skip<TestEvent> = skip();
-        let cursor = process.root();
-        assert!(satisfies_trace(cursor.clone(), vec![tick()]));
-        assert!(!satisfies_trace(cursor.clone(), vec![tau()]));
-        assert!(!satisfies_trace(cursor.clone(), vec![tick(), tick()]));
+        assert_eq!(
+            maximal_finite_traces(process.root()),
+            hashset! { vec![tick()] }
+        );
     }
 
     #[test]
