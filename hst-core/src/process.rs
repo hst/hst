@@ -17,8 +17,10 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::iter::FromIterator;
+use std::ops::Add;
 
 /// A CSP process is defined by what events it's willing and able to communicate, and when.
 pub trait Process<E> {
@@ -71,14 +73,97 @@ where
     true
 }
 
+/// A set of traces that is maximal — where we ensure that no element of the set is a prefix of any
+/// other element.
+#[derive(Clone, Eq, PartialEq)]
+pub struct MaximalTraces<E: Eq + Hash>(HashSet<Vec<E>>);
+
+impl<E> MaximalTraces<E>
+where
+    E: Eq + Hash,
+{
+    pub fn new() -> MaximalTraces<E> {
+        MaximalTraces(HashSet::new())
+    }
+
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a Vec<E>> {
+        self.0.iter()
+    }
+}
+
+impl<E> MaximalTraces<E>
+where
+    E: Clone + Eq + Hash,
+{
+    pub fn insert(&mut self, trace: Vec<E>) {
+        // If the new trace is a prefix of any existing trace, do nothing.
+        if self.0.iter().any(|existing| existing.starts_with(&trace)) {
+            return;
+        }
+
+        // Remove any existing traces that are a prefix of the new one.
+        let mut prefix = trace.clone();
+        while !prefix.is_empty() {
+            prefix.pop();
+            self.0.remove(&prefix);
+        }
+
+        self.0.insert(trace);
+    }
+}
+
+impl<E> Debug for MaximalTraces<E>
+where
+    E: Debug + Eq + Hash,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl<E> Add for MaximalTraces<E>
+where
+    E: Clone + Eq + Hash,
+{
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self {
+        for trace in rhs.0 {
+            self.insert(trace);
+        }
+        self
+    }
+}
+
+impl<E> IntoIterator for MaximalTraces<E>
+where
+    E: Eq + Hash,
+{
+    type Item = Vec<E>;
+    type IntoIter = std::collections::hash_set::IntoIter<Vec<E>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<E> PartialEq<HashSet<Vec<E>>> for MaximalTraces<E>
+where
+    E: Clone + Eq + Hash,
+{
+    fn eq(&self, other: &HashSet<Vec<E>>) -> bool {
+        self.0 == *other
+    }
+}
+
 /// Returns the maximal finite traces of a process.
-pub fn maximal_finite_traces<C, E>(cursor: C) -> HashSet<Vec<E>>
+pub fn maximal_finite_traces<C, E>(cursor: C) -> MaximalTraces<E>
 where
     C: Clone + Eq + Cursor<E>,
     E: Clone + Eq + Hash,
 {
     fn subprocess<C, E>(
-        result: &mut HashSet<Vec<E>>,
+        result: &mut MaximalTraces<E>,
         cursor: C,
         previous_cursors: &mut Vec<C>,
         current_trace: &mut Vec<E>,
@@ -113,7 +198,7 @@ where
         previous_cursors.pop();
     }
 
-    let mut result = HashSet::new();
+    let mut result = MaximalTraces::new();
     let mut previous_cursors = Vec::new();
     let mut current_trace = Vec::new();
     subprocess(
@@ -123,6 +208,29 @@ where
         &mut current_trace,
     );
     result
+}
+
+#[cfg(test)]
+mod maximal_traces_tests {
+    use super::*;
+
+    use proptest_attr_macro::proptest;
+
+    use crate::test_support::TestEvent;
+
+    #[proptest]
+    fn maximal_traces_are_maximal(traces: Vec<Vec<TestEvent>>) {
+        // Add a bunch of random traces to the set
+        let mut maximal_traces = MaximalTraces::new();
+        for trace in traces {
+            maximal_traces.insert(trace);
+        }
+
+        // And make sure that we've removed any traces that are a prefix of any other trace!
+        assert!(!maximal_traces
+            .iter()
+            .any(|a| maximal_traces.iter().any(|b| *a != *b && a.starts_with(b))));
+    }
 }
 
 /// Returns the events that the process is willing to perform.
