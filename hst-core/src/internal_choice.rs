@@ -57,7 +57,7 @@ pub fn replicated_internal_choice<P: From<InternalChoice<P>>, I: IntoIterator<It
 ///
 /// [`internal_choice`]: fn.internal_choice.html
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct InternalChoice<P>(SmallVec<[P; 2]>);
+pub struct InternalChoice<P>(pub(crate) SmallVec<[P; 2]>);
 
 impl<P: Debug + Display> Display for InternalChoice<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
