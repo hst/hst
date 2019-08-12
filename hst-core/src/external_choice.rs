@@ -24,9 +24,7 @@ use smallvec::SmallVec;
 
 use crate::primitives::tau;
 use crate::primitives::Tau;
-use crate::process::Afters;
 use crate::process::Cursor;
-use crate::process::Initials;
 use crate::process::Process;
 
 /// Constructs a new _external choice_ process `P □ Q`.  This process behaves either like `P` _or_
@@ -344,65 +342,6 @@ where
             ExternalChoiceState::Resolved => {
                 self.perform_when_resolved(event);
             }
-        }
-    }
-}
-
-impl<'a, E, P> Initials<'a, E> for ExternalChoice<P>
-where
-    E: 'a,
-    P: Initials<'a, E>,
-{
-    // Need the box since we can't name the type that it contains :-(
-    type Initials = Box<dyn Iterator<Item = E> + 'a>;
-
-    fn initials(&'a self) -> Self::Initials {
-        // 1) If P ∈ Ps can perform τ, then □ Ps can perform τ.
-        // 2) If P ∈ Ps can perform a ≠ τ, then □ Ps can perform a ≠ τ.
-        //
-        // initials(□ Ps) = ⋃ { initials(P) ∩ {τ} | P ∈ Ps }                [rule 1]
-        //                ∪ ⋃ { initials(P) ∖ {τ} | P ∈ Ps }                [rule 2]
-        //
-        //                = ⋃ { initials(P) | P ∈ Ps }
-        Box::new(self.0.iter().flat_map(P::initials))
-    }
-}
-
-impl<'a, E, P> Afters<'a, E, P> for ExternalChoice<P>
-where
-    E: Clone + Eq + From<Tau> + 'a,
-    P: Clone + From<ExternalChoice<P>> + 'a,
-    P: Afters<'a, E, P>,
-{
-    type Afters = Box<dyn Iterator<Item = P> + 'a>;
-
-    fn afters(&'a self, initial: &E) -> Self::Afters {
-        // afters(□ Ps, τ) = ⋃ { □ Ps ∖ {P} ∪ {P'} | P ∈ Ps, P' ∈ afters(P, τ) }
-        //                                                                  [rule 1]
-        // afters(□ Ps, a ≠ τ) = ⋃ { P' | P ∈ Ps, P' ∈ afters(P, a) }       [rule 2]
-        if *initial == tau() {
-            // An iterator of (idx, P) pairs: each process that we're □-ing over, along with its
-            // index in our Ps collection.
-            let enumerated = self.0.iter().enumerate();
-            // Expands each P into its after processes, but still paired with the corresponding P's
-            // original index in Ps.
-            let afters = enumerated.flat_map({
-                let initial = initial.clone();
-                move |(idx, p)| p.afters(&initial).map(move |p1| (idx, p1))
-            });
-            // For each (idx, P') element, use the idx to replace P in Ps with P'.
-            let mut ps = self.0.clone();
-            let replaced = afters.map(move |(idx, mut p1)| {
-                std::mem::swap(&mut ps[idx], &mut p1);
-                let result = ExternalChoice(ps.clone()).into();
-                std::mem::swap(&mut ps[idx], &mut p1);
-                result
-            });
-
-            Box::new(replaced)
-        } else {
-            let initial = initial.clone();
-            Box::new(self.0.iter().flat_map(move |p| p.afters(&initial)))
         }
     }
 }

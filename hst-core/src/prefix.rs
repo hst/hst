@@ -18,11 +18,7 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use auto_enums::enum_derive;
-
-use crate::process::Afters;
 use crate::process::Cursor;
-use crate::process::Initials;
 use crate::process::Process;
 
 /// Constructs a new _prefix_ process `a → P`.  This process performs event `a` and then behaves
@@ -116,54 +112,16 @@ where
     }
 }
 
-impl<'a, E, P> Initials<'a, E> for Prefix<E, P>
-where
-    E: Clone + 'a,
-{
-    type Initials = std::iter::Once<E>;
-
-    fn initials(&'a self) -> Self::Initials {
-        // initials(a → P) = {a}
-        std::iter::once(self.0.clone())
-    }
-}
-
-#[doc(hidden)]
-#[enum_derive(Iterator)]
-pub enum PrefixAfters<Initial, NotInitial> {
-    Initial(Initial),
-    NotInitial(NotInitial),
-}
-
-impl<'a, E, P> Afters<'a, E, P> for Prefix<E, P>
-where
-    E: Eq,
-    P: Clone + 'a,
-{
-    type Afters = PrefixAfters<std::iter::Once<P>, std::iter::Empty<P>>;
-
-    fn afters(&'a self, initial: &E) -> Self::Afters {
-        // afters(a → P, a) = P
-        if *initial == self.0 {
-            PrefixAfters::Initial(std::iter::once(self.1.clone()))
-        } else {
-            PrefixAfters::NotInitial(std::iter::empty())
-        }
-    }
-}
-
 #[cfg(test)]
 mod prefix_tests {
     use super::*;
 
-    use maplit::hashmap;
     use maplit::hashset;
     use proptest_attr_macro::proptest;
 
     use crate::csp::CSP;
     use crate::process::initials;
     use crate::process::maximal_finite_traces;
-    use crate::process::transitions;
     use crate::test_support::NumberedEvent;
     use crate::test_support::TestEvent;
 
@@ -176,13 +134,5 @@ mod prefix_tests {
             maximal_finite_traces(process.root()),
             maximal_finite_traces(after.root()).map(|trace| trace.insert(0, initial.clone()))
         );
-    }
-
-    #[proptest]
-    fn check_prefix_transitions(initial: NumberedEvent, after: CSP<TestEvent>) {
-        let initial = TestEvent::from(initial);
-        let process = prefix(initial.clone(), after.clone());
-        let transitions = transitions(&process);
-        assert_eq!(transitions, hashmap! { initial => vec![after] });
     }
 }

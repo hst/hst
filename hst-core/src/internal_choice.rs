@@ -19,16 +19,13 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
-use auto_enums::enum_derive;
 use smallbitvec::SmallBitVec;
 use smallvec::smallvec;
 use smallvec::SmallVec;
 
 use crate::primitives::tau;
 use crate::primitives::Tau;
-use crate::process::Afters;
 use crate::process::Cursor;
-use crate::process::Initials;
 use crate::process::Process;
 
 /// Constructs a new _internal choice_ process `P ⊓ Q`.  This process behaves either like `P` _or_
@@ -204,43 +201,6 @@ where
             panic!("Internal choice cannot perform {}", event);
         }
         self.state = InternalChoiceState::AfterTau;
-    }
-}
-
-impl<'a, E, P> Initials<'a, E> for InternalChoice<P>
-where
-    E: From<Tau> + 'a,
-{
-    type Initials = std::iter::Once<E>;
-
-    fn initials(&'a self) -> Self::Initials {
-        // initials(⊓ Ps) = {τ}
-        std::iter::once(tau())
-    }
-}
-
-#[doc(hidden)]
-#[enum_derive(Iterator)]
-pub enum InternalChoiceAfters<Tau, NotTau> {
-    Tau(Tau),
-    NotTau(NotTau),
-}
-
-impl<'a, E, P> Afters<'a, E, P> for InternalChoice<P>
-where
-    E: Eq + From<Tau>,
-    P: Clone + 'a,
-{
-    type Afters =
-        InternalChoiceAfters<std::iter::Cloned<std::slice::Iter<'a, P>>, std::iter::Empty<P>>;
-
-    fn afters(&'a self, initial: &E) -> Self::Afters {
-        // afters(⊓ Ps, τ) = Ps
-        if *initial == tau() {
-            InternalChoiceAfters::Tau(self.0.iter().cloned())
-        } else {
-            InternalChoiceAfters::NotTau(std::iter::empty())
-        }
     }
 }
 

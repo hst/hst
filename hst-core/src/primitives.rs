@@ -19,11 +19,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
-use auto_enums::enum_derive;
-
-use crate::process::Afters;
 use crate::process::Cursor;
-use crate::process::Initials;
 use crate::process::Process;
 
 //-------------------------------------------------------------------------------------------------
@@ -144,53 +140,20 @@ where
     }
 }
 
-impl<'a, E> Initials<'a, E> for Stop<E>
-where
-    E: 'a,
-{
-    type Initials = std::iter::Empty<E>;
-
-    fn initials(&'a self) -> Self::Initials {
-        std::iter::empty()
-    }
-}
-
-impl<'a, E, P> Afters<'a, E, P> for Stop<E>
-where
-    P: 'a,
-{
-    type Afters = std::iter::Empty<P>;
-
-    fn afters(&'a self, _initial: &E) -> Self::Afters {
-        std::iter::empty()
-    }
-}
-
 #[cfg(test)]
 mod stop_tests {
     use super::*;
 
-    use std::collections::HashMap;
-
     use maplit::hashset;
 
-    use crate::csp::CSP;
     use crate::process::initials;
     use crate::process::maximal_finite_traces;
-    use crate::process::transitions;
-    use crate::test_support::TestEvent;
 
     #[test]
     fn check_stop() {
         let process: Stop<Tau> = stop();
         assert_eq!(initials(&process.root()), hashset! {});
         assert_eq!(maximal_finite_traces(process.root()), hashset! {vec![]});
-    }
-
-    #[test]
-    fn check_stop_transitions() {
-        let transitions: HashMap<TestEvent, Vec<CSP<TestEvent>>> = transitions(&stop());
-        assert!(transitions.is_empty());
     }
 }
 
@@ -284,53 +247,14 @@ where
     }
 }
 
-impl<'a, E> Initials<'a, E> for Skip<E>
-where
-    E: From<Tick> + 'a,
-{
-    type Initials = std::iter::Once<E>;
-
-    fn initials(&'a self) -> Self::Initials {
-        std::iter::once(tick())
-    }
-}
-
-#[doc(hidden)]
-#[enum_derive(Iterator)]
-pub enum SkipAfters<Tick, NotTick> {
-    Tick(Tick),
-    NotTick(NotTick),
-}
-
-impl<'a, E, P> Afters<'a, E, P> for Skip<E>
-where
-    E: Eq + From<Tick>,
-    P: From<Stop<E>> + 'a,
-{
-    type Afters = SkipAfters<std::iter::Once<P>, std::iter::Empty<P>>;
-
-    fn afters(&'a self, initial: &E) -> Self::Afters {
-        if *initial == Tick.into() {
-            SkipAfters::Tick(std::iter::once(stop()))
-        } else {
-            SkipAfters::NotTick(std::iter::empty())
-        }
-    }
-}
-
 #[cfg(test)]
 mod skip_tests {
     use super::*;
 
-    use std::collections::HashMap;
-
-    use maplit::hashmap;
     use maplit::hashset;
 
-    use crate::csp::CSP;
     use crate::process::initials;
     use crate::process::maximal_finite_traces;
-    use crate::process::transitions;
     use crate::test_support::TestEvent;
 
     #[test]
@@ -341,11 +265,5 @@ mod skip_tests {
             maximal_finite_traces(process.root()),
             hashset! { vec![tick()] }
         );
-    }
-
-    #[test]
-    fn check_skip_transitions() {
-        let transitions: HashMap<TestEvent, Vec<CSP<TestEvent>>> = transitions(&skip());
-        assert_eq!(transitions, hashmap! { tick() => vec![stop()] });
     }
 }

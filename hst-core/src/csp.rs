@@ -29,9 +29,7 @@ use crate::primitives::Skip;
 use crate::primitives::Stop;
 use crate::primitives::Tau;
 use crate::primitives::Tick;
-use crate::process::Afters;
 use crate::process::Cursor;
-use crate::process::Initials;
 use crate::process::Process;
 
 /// A process type that includes all of the primitive processes and operators in the CSP language.
@@ -113,28 +111,6 @@ where
 
     fn perform(&mut self, event: &E) {
         self.0.perform(event);
-    }
-}
-
-impl<'a, E> Initials<'a, E> for CSP<E>
-where
-    E: Clone + From<Tau> + From<Tick> + 'a,
-{
-    type Initials = Box<dyn Iterator<Item = E> + 'a>;
-
-    fn initials(&'a self) -> Self::Initials {
-        Box::new(self.0.initials())
-    }
-}
-
-impl<'a, E> Afters<'a, E, CSP<E>> for CSP<E>
-where
-    E: Clone + Eq + From<Tau> + From<Tick> + 'a,
-{
-    type Afters = Box<dyn Iterator<Item = CSP<E>> + 'a>;
-
-    fn afters(&'a self, initial: &E) -> Self::Afters {
-        Box::new(self.0.afters(initial))
     }
 }
 
@@ -226,70 +202,6 @@ where
             CSPSigCursor::Prefix(this) => this.perform(event),
             CSPSigCursor::Skip(this) => this.perform(event),
             CSPSigCursor::Stop(this) => this.perform(event),
-        }
-    }
-}
-
-#[doc(hidden)]
-#[enum_derive(Iterator)]
-pub enum CSPIter<Stop, Skip, Prefix, ExternalChoice, InternalChoice> {
-    Stop(Stop),
-    Skip(Skip),
-    Prefix(Prefix),
-    ExternalChoice(ExternalChoice),
-    InternalChoice(InternalChoice),
-}
-
-impl<'a, E, P> Initials<'a, E> for CSPSig<E, P>
-where
-    Stop<E>: Initials<'a, E>,
-    Skip<E>: Initials<'a, E>,
-    Prefix<E, P>: Initials<'a, E>,
-    ExternalChoice<P>: Initials<'a, E>,
-    InternalChoice<P>: Initials<'a, E>,
-{
-    type Initials = CSPIter<
-        <Stop<E> as Initials<'a, E>>::Initials,
-        <Skip<E> as Initials<'a, E>>::Initials,
-        <Prefix<E, P> as Initials<'a, E>>::Initials,
-        <ExternalChoice<P> as Initials<'a, E>>::Initials,
-        <InternalChoice<P> as Initials<'a, E>>::Initials,
-    >;
-
-    fn initials(&'a self) -> Self::Initials {
-        match self {
-            CSPSig::Stop(this) => CSPIter::Stop(this.initials()),
-            CSPSig::Skip(this) => CSPIter::Skip(this.initials()),
-            CSPSig::Prefix(this) => CSPIter::Prefix(this.initials()),
-            CSPSig::ExternalChoice(this) => CSPIter::ExternalChoice(this.initials()),
-            CSPSig::InternalChoice(this) => CSPIter::InternalChoice(this.initials()),
-        }
-    }
-}
-
-impl<'a, E, P> Afters<'a, E, P> for CSPSig<E, P>
-where
-    Stop<E>: Afters<'a, E, P>,
-    Skip<E>: Afters<'a, E, P>,
-    Prefix<E, P>: Afters<'a, E, P>,
-    ExternalChoice<P>: Afters<'a, E, P>,
-    InternalChoice<P>: Afters<'a, E, P>,
-{
-    type Afters = CSPIter<
-        <Stop<E> as Afters<'a, E, P>>::Afters,
-        <Skip<E> as Afters<'a, E, P>>::Afters,
-        <Prefix<E, P> as Afters<'a, E, P>>::Afters,
-        <ExternalChoice<P> as Afters<'a, E, P>>::Afters,
-        <InternalChoice<P> as Afters<'a, E, P>>::Afters,
-    >;
-
-    fn afters(&'a self, initial: &E) -> Self::Afters {
-        match self {
-            CSPSig::Stop(this) => CSPIter::Stop(this.afters(initial)),
-            CSPSig::Skip(this) => CSPIter::Skip(this.afters(initial)),
-            CSPSig::Prefix(this) => CSPIter::Prefix(this.afters(initial)),
-            CSPSig::ExternalChoice(this) => CSPIter::ExternalChoice(this.afters(initial)),
-            CSPSig::InternalChoice(this) => CSPIter::InternalChoice(this.afters(initial)),
         }
     }
 }

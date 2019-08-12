@@ -15,7 +15,6 @@
 
 //! Defines several traits that CSP processes will probably implement.
 
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -294,69 +293,5 @@ mod maximal_traces_tests {
         assert!(!maximal_traces
             .iter()
             .any(|a| maximal_traces.iter().any(|b| *a != *b && a.starts_with(b))));
-    }
-}
-
-/// Returns the events that the process is willing to perform.
-pub trait Initials<'a, E> {
-    type Initials: Iterator<Item = E> + 'a;
-    fn initials(&'a self) -> Self::Initials;
-}
-
-/// Returns how the process behaves after one of its initial events is performed.  The result is
-/// a _set_ of processes; if there are multiple processes in the set, then there is nondeterminism,
-/// and the process will behave like one of the elements arbitrarily.
-pub trait Afters<'a, E, P> {
-    type Afters: Iterator<Item = P> + 'a;
-    fn afters(&'a self, initial: &E) -> Self::Afters;
-}
-
-/// Returns all of the outgoing transitions for the process.  This is a map where the keys are the
-/// initial events of the process, and the values are a collection of the after processes for each
-/// of those events.
-pub fn transitions<'a, E, P, C>(process: &'a P) -> HashMap<E, C>
-where
-    E: Eq + Hash,
-    P: Initials<'a, E>,
-    P: Afters<'a, E, P>,
-    C: FromIterator<P>,
-{
-    let mut transitions = HashMap::new();
-    for initial in process.initials() {
-        let afters = process.afters(&initial).collect();
-        transitions.insert(initial, afters);
-    }
-    transitions
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use proptest_attr_macro::proptest;
-
-    use crate::csp::CSP;
-    use crate::test_support::TestEvent;
-
-    #[proptest]
-    /// The `initials` and `afters` methods for a process must be consistent with each other.  If
-    /// an event is in the `initials` set, the `afters` iterator must contain at least one element.
-    /// If an event is not in the `initials` set, the `afters` iterator must be empty.
-    fn initials_consistent_with_afters(process: CSP<TestEvent>, initial: TestEvent) {
-        let in_initials = process.initials().any(|e| e == initial);
-        let mut afters = process.afters(&initial);
-        if in_initials {
-            assert!(
-                afters.next().is_some(),
-                "Afters can't be empty for initial event {}",
-                initial
-            );
-        } else {
-            assert!(
-                afters.next().is_none(),
-                "Afters must be empty for non-initial event {}",
-                initial
-            );
-        }
     }
 }
