@@ -57,7 +57,7 @@ pub fn replicated_internal_choice<P: From<InternalChoice<P>>, I: IntoIterator<It
 ///
 /// [`internal_choice`]: fn.internal_choice.html
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct InternalChoice<P>(pub(crate) SmallVec<[P; 2]>);
+pub struct InternalChoice<P>(SmallVec<[P; 2]>);
 
 impl<P: Debug + Display> Display for InternalChoice<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -141,7 +141,7 @@ impl<E, C> InternalChoiceCursor<E, C> {
 
 impl<E, P> Process<E> for InternalChoice<P>
 where
-    E: Display + Eq + From<Tau>,
+    E: Display + Eq + From<Tau> + 'static,
     P: Process<E>,
 {
     type Cursor = InternalChoiceCursor<E, P::Cursor>;
@@ -248,60 +248,48 @@ where
 mod internal_choice_tests {
     use super::*;
 
-    use maplit::hashmap;
     use maplit::hashset;
     use proptest_attr_macro::proptest;
 
     use crate::csp::CSP;
-    use crate::prefix::Prefix;
-    use crate::primitives::stop;
     use crate::primitives::tau;
-    use crate::primitives::Stop;
+    use crate::process::initials;
     use crate::process::maximal_finite_traces;
-    use crate::process::transitions;
+    use crate::process::MaximalTraces;
     use crate::test_support::NonemptyVec;
-    use crate::test_support::NumberedEvent;
     use crate::test_support::TestEvent;
 
     #[proptest]
-    fn check_internal_choice_events(a: NumberedEvent, b: NumberedEvent) {
-        let a = TestEvent::from(a);
-        let b = TestEvent::from(b);
-        // TODO: Use CSP<TestEvent> once all operators implement Process
-        let process = InternalChoice(smallvec![
-            Prefix::<TestEvent, Stop<TestEvent>>(a.clone(), stop()),
-            Prefix::<TestEvent, Stop<TestEvent>>(b.clone(), stop()),
-        ]);
-        let cursor = process.root();
-        assert_eq!(cursor.events().collect::<Vec<_>>(), vec![tau()]);
-    }
-
-    #[proptest]
-    fn check_internal_choice_traces(a: NumberedEvent, b: NumberedEvent) {
-        let a = TestEvent::from(a);
-        let b = TestEvent::from(b);
-        // TODO: Use CSP<TestEvent> once all operators implement Process
-        let process = InternalChoice(smallvec![
-            Prefix::<TestEvent, Stop<TestEvent>>(a.clone(), stop()),
-            Prefix::<TestEvent, Stop<TestEvent>>(b.clone(), stop()),
-        ]);
+    fn check_singleton_internal_choice(p: CSP<TestEvent>) {
+        let process = replicated_internal_choice(vec![p.clone()]);
+        assert_eq!(initials(&process.root()), hashset! {tau()});
         assert_eq!(
             maximal_finite_traces(process.root()),
-            hashset! { vec![a], vec![b] }
+            maximal_finite_traces(p.root())
         );
     }
 
     #[proptest]
-    fn check_internal_choice_transitions(p: CSP<TestEvent>, q: CSP<TestEvent>) {
+    fn check_doubleton_internal_choice(p: CSP<TestEvent>, q: CSP<TestEvent>) {
         let process = internal_choice(p.clone(), q.clone());
-        let transitions = transitions(&process);
-        assert_eq!(transitions, hashmap! { tau() => vec![p, q] });
+        assert_eq!(initials(&process.root()), hashset! {tau()});
+        assert_eq!(
+            maximal_finite_traces(process.root()),
+            maximal_finite_traces(p.root()) + maximal_finite_traces(q.root())
+        );
     }
 
     #[proptest]
     fn check_replicated_internal_choice_transitions(ps: NonemptyVec<CSP<TestEvent>>) {
         let process = replicated_internal_choice(ps.vec.clone());
-        let transitions = transitions(&process);
-        assert_eq!(transitions, hashmap! { tau() => ps.vec });
+        assert_eq!(initials(&process.root()), hashset! {tau()});
+        assert_eq!(
+            maximal_finite_traces(process.root()),
+            ps.vec
+                .iter()
+                .map(Process::root)
+                .map(maximal_finite_traces)
+                .sum::<MaximalTraces<_>>()
+        );
     }
 }

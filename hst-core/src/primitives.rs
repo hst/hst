@@ -175,20 +175,15 @@ mod stop_tests {
     use maplit::hashset;
 
     use crate::csp::CSP;
+    use crate::process::initials;
     use crate::process::maximal_finite_traces;
     use crate::process::transitions;
     use crate::test_support::TestEvent;
 
     #[test]
-    fn check_stop_events() {
+    fn check_stop() {
         let process: Stop<Tau> = stop();
-        let events = process.root().events().collect::<Vec<_>>();
-        assert!(events.is_empty());
-    }
-
-    #[test]
-    fn check_stop_traces() {
-        let process: Stop<Tau> = stop();
+        assert_eq!(initials(&process.root()), hashset! {});
         assert_eq!(maximal_finite_traces(process.root()), hashset! {vec![]});
     }
 
@@ -333,20 +328,15 @@ mod skip_tests {
     use maplit::hashset;
 
     use crate::csp::CSP;
+    use crate::process::initials;
     use crate::process::maximal_finite_traces;
     use crate::process::transitions;
     use crate::test_support::TestEvent;
 
     #[test]
-    fn check_skip_events() {
+    fn check_skip() {
         let process: Skip<TestEvent> = skip();
-        let cursor = process.root();
-        assert_eq!(cursor.events().collect::<Vec<_>>(), vec![tick()]);
-    }
-
-    #[test]
-    fn check_skip_traces() {
-        let process: Skip<TestEvent> = skip();
+        assert_eq!(initials(&process.root()), hashset! { tick() });
         assert_eq!(
             maximal_finite_traces(process.root()),
             hashset! { vec![tick()] }

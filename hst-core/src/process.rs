@@ -20,6 +20,7 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::iter::FromIterator;
+use std::iter::Sum;
 use std::ops::Add;
 
 use crate::primitives::tau;
@@ -59,6 +60,15 @@ pub trait Cursor<E> {
     /// performing a particular event.  Panics if the process is not willing to perform `event` in
     /// its current state.
     fn perform(&mut self, event: &E);
+}
+
+/// Returns the initial events of a process.  This includes invisible events like τ.
+pub fn initials<C, E>(cursor: &C) -> HashSet<E>
+where
+    C: Cursor<E>,
+    E: Eq + From<Tau> + Hash,
+{
+    cursor.events().collect()
 }
 
 /// Returns whether a process satisfies a trace.
@@ -113,6 +123,18 @@ where
 
         self.0.insert(trace);
     }
+
+    pub fn map<F>(self, mut f: F) -> MaximalTraces<E>
+    where
+        F: FnMut(&mut Vec<E>),
+    {
+        self.into_iter()
+            .map(|mut trace| {
+                f(&mut trace);
+                trace
+            })
+            .collect()
+    }
 }
 
 impl<E> Debug for MaximalTraces<E>
@@ -138,6 +160,22 @@ where
     }
 }
 
+impl<E> FromIterator<Vec<E>> for MaximalTraces<E>
+where
+    E: Clone + Eq + Hash,
+{
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Vec<E>>,
+    {
+        let mut result = MaximalTraces::new();
+        for trace in iter {
+            result.insert(trace);
+        }
+        result
+    }
+}
+
 impl<E> IntoIterator for MaximalTraces<E>
 where
     E: Eq + Hash,
@@ -156,6 +194,24 @@ where
 {
     fn eq(&self, other: &HashSet<Vec<E>>) -> bool {
         self.0 == *other
+    }
+}
+
+impl<E> Sum<MaximalTraces<E>> for MaximalTraces<E>
+where
+    E: Clone + Eq + Hash,
+{
+    fn sum<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = MaximalTraces<E>>,
+    {
+        let mut result = MaximalTraces::new();
+        for other in iter {
+            for trace in other {
+                result.insert(trace);
+            }
+        }
+        result
     }
 }
 

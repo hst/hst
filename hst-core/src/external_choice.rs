@@ -160,7 +160,7 @@ where
 
 impl<E, P> Process<E> for ExternalChoice<P>
 where
-    E: Display + Eq + From<Tau>,
+    E: Display + Eq + From<Tau> + 'static,
     P: Process<E>,
     P::Cursor: Clone,
 {
@@ -411,125 +411,55 @@ where
 mod external_choice_tests {
     use super::*;
 
-    use std::collections::HashMap;
-
-    use maplit::hashmap;
     use maplit::hashset;
     use proptest_attr_macro::proptest;
 
     use crate::csp::CSP;
-    use crate::internal_choice::internal_choice;
-    use crate::internal_choice::InternalChoice;
-    use crate::prefix::prefix;
-    use crate::prefix::Prefix;
-    use crate::primitives::stop;
-    use crate::primitives::Stop;
+    use crate::process::initials;
     use crate::process::maximal_finite_traces;
-    use crate::process::transitions;
-    use crate::test_support::NumberedEvent;
     use crate::test_support::TestEvent;
 
     #[test]
     fn check_empty_external_choice() {
-        let process = replicated_external_choice(vec![]);
-        let transitions: HashMap<TestEvent, Vec<CSP<TestEvent>>> = transitions(&process);
-        assert!(transitions.is_empty());
+        let process: CSP<TestEvent> = replicated_external_choice(vec![]);
+        assert_eq!(maximal_finite_traces(process.root()), hashset! {vec![]});
     }
 
     #[proptest]
-    fn check_external_choice_events(a: NumberedEvent, b: NumberedEvent) {
-        let a = TestEvent::from(a);
-        let b = TestEvent::from(b);
-        // TODO: Use CSP<TestEvent> once all operators implement Process
-        let process = ExternalChoice(smallvec![
-            Prefix::<TestEvent, Stop<TestEvent>>(a.clone(), stop()),
-            Prefix::<TestEvent, Stop<TestEvent>>(b.clone(), stop()),
-        ]);
-        let cursor = process.root();
-        assert_eq!(cursor.events().collect::<Vec<_>>(), vec![a, b]);
-    }
-
-    #[proptest]
-    fn check_external_choice_traces(a: NumberedEvent, b: NumberedEvent) {
-        let a = TestEvent::from(a);
-        let b = TestEvent::from(b);
-        // TODO: Use CSP<TestEvent> once all operators implement Process
-        let process = ExternalChoice(smallvec![
-            Prefix::<TestEvent, Stop<TestEvent>>(a.clone(), stop()),
-            Prefix::<TestEvent, Stop<TestEvent>>(b.clone(), stop()),
-        ]);
+    fn check_singleton_external_choice(p: CSP<TestEvent>) {
+        let process = replicated_external_choice(vec![p.clone()]);
+        assert_eq!(initials(&process.root()), initials(&p.root()));
         assert_eq!(
             maximal_finite_traces(process.root()),
-            hashset! { vec![a], vec![b] }
+            maximal_finite_traces(p.root())
         );
     }
 
     #[proptest]
-    fn check_external_internal_traces(a: NumberedEvent, b: NumberedEvent) {
-        let a = TestEvent::from(a);
-        let b = TestEvent::from(b);
-        // TODO: Use CSP<TestEvent> once all operators implement Process
-        let process = ExternalChoice(smallvec![InternalChoice(smallvec![
-            Prefix::<TestEvent, Stop<TestEvent>>(a.clone(), stop()),
-            Prefix::<TestEvent, Stop<TestEvent>>(b.clone(), stop()),
-        ])]);
+    fn check_doubleton_external_choice(p: CSP<TestEvent>, q: CSP<TestEvent>) {
+        let process = replicated_external_choice(vec![p.clone(), q.clone()]);
+        assert_eq!(
+            initials(&process.root()),
+            &initials(&p.root()) | &initials(&q.root())
+        );
         assert_eq!(
             maximal_finite_traces(process.root()),
-            hashset! { vec![a], vec![b] }
+            maximal_finite_traces(p.root()) + maximal_finite_traces(q.root())
         );
     }
 
     #[proptest]
-    fn check_singleton_external_choice(a: NumberedEvent, p: CSP<TestEvent>) {
-        let a = TestEvent::from(a);
-        let process = replicated_external_choice(vec![prefix(a.clone(), p.clone())]);
-        let transitions = transitions(&process);
-        assert_eq!(transitions, hashmap! { a => vec![p] });
-    }
-
-    #[proptest]
-    fn check_doubleton_external_choice(a: NumberedEvent, p: CSP<TestEvent>, q: CSP<TestEvent>) {
-        let a = TestEvent::from(a);
-        let process = replicated_external_choice(vec![
-            prefix(a.clone(), p.clone()),
-            prefix(a.clone(), q.clone()),
-        ]);
-        let transitions = transitions(&process);
-        assert_eq!(transitions, hashmap! { a => vec![p, q] });
-    }
-
-    #[proptest]
-    fn check_external_internal(
-        a: NumberedEvent,
-        b: NumberedEvent,
-        c: NumberedEvent,
-        p: CSP<TestEvent>,
-        q: CSP<TestEvent>,
-        r: CSP<TestEvent>,
-    ) {
-        // process = a → P □ (b → Q ⊓ c → R)
-        let a = TestEvent::from(a);
-        let b = TestEvent::from(b);
-        let c = TestEvent::from(c);
-        let prefix_p = prefix(a.clone(), p.clone());
-        let prefix_q = prefix(b.clone(), q.clone());
-        let prefix_r = prefix(c.clone(), r.clone());
-        let process = external_choice(
-            prefix_p.clone(),
-            internal_choice(prefix_q.clone(), prefix_r.clone()),
-        );
-        let transitions = transitions(&process);
+    fn check_tripleton_external_choice(p: CSP<TestEvent>, q: CSP<TestEvent>, r: CSP<TestEvent>) {
+        let process = replicated_external_choice(vec![p.clone(), q.clone(), r.clone()]);
         assert_eq!(
-            transitions,
-            hashmap! {
-                // A tau resolves the internal choice
-                tau() => vec![
-                    external_choice(prefix_p.clone(), prefix_q.clone()),
-                    external_choice(prefix_p.clone(), prefix_r.clone()),
-                ],
-                // If the environment chooses `a`, then the internal choice doesn't matter.
-                a => vec![p],
-            }
+            initials(&process.root()),
+            &(&initials(&p.root()) | &initials(&q.root())) | &initials(&r.root())
+        );
+        assert_eq!(
+            maximal_finite_traces(process.root()),
+            maximal_finite_traces(p.root())
+                + maximal_finite_traces(q.root())
+                + maximal_finite_traces(r.root())
         );
     }
 }

@@ -30,7 +30,9 @@ use crate::primitives::Stop;
 use crate::primitives::Tau;
 use crate::primitives::Tick;
 use crate::process::Afters;
+use crate::process::Cursor;
 use crate::process::Initials;
+use crate::process::Process;
 
 /// A process type that includes all of the primitive processes and operators in the CSP language.
 /// Note that you should never need to construct instances of this type directly; use the helper
@@ -58,6 +60,59 @@ where
 {
     fn from(t: T) -> CSP<E> {
         CSP(Rc::new(CSPSig::from(t)))
+    }
+}
+
+impl<E> Process<E> for CSP<E>
+where
+    E: Clone + Display + Eq + From<Tau> + From<Tick> + 'static,
+{
+    type Cursor = CSPCursor<E>;
+
+    fn root(&self) -> Self::Cursor {
+        CSPCursor(Box::new(self.0.root()))
+    }
+}
+
+#[doc(hidden)]
+#[derive(Clone, Eq, PartialEq)]
+pub struct CSPCursor<E>(
+    Box<
+        CSPSigCursor<
+            <ExternalChoice<CSP<E>> as Process<E>>::Cursor,
+            <InternalChoice<CSP<E>> as Process<E>>::Cursor,
+            <Prefix<E, CSP<E>> as Process<E>>::Cursor,
+            <Skip<E> as Process<E>>::Cursor,
+            <Stop<E> as Process<E>>::Cursor,
+        >,
+    >,
+)
+where
+    E: Clone + Display + Eq + From<Tau> + From<Tick> + 'static;
+
+impl<E> Debug for CSPCursor<E>
+where
+    E: Clone + Debug + Display + Eq + From<Tau> + From<Tick> + 'static,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        (self.0.as_ref() as &dyn Debug).fmt(f)
+    }
+}
+
+impl<E> Cursor<E> for CSPCursor<E>
+where
+    E: Clone + Display + Eq + From<Tau> + From<Tick> + 'static,
+{
+    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
+        self.0.events()
+    }
+
+    fn can_perform(&self, event: &E) -> bool {
+        self.0.can_perform(event)
+    }
+
+    fn perform(&mut self, event: &E) {
+        self.0.perform(event);
     }
 }
 
@@ -97,6 +152,82 @@ pub enum CSPSig<E, P> {
     ExternalChoice(ExternalChoice<P>),
     #[doc(hidden)]
     InternalChoice(InternalChoice<P>),
+}
+
+#[doc(hidden)]
+#[enum_derive(Debug, Display)]
+#[derive(Clone, Eq, PartialEq)]
+pub enum CSPSigCursor<ExternalChoice, InternalChoice, Prefix, Skip, Stop> {
+    ExternalChoice(ExternalChoice),
+    InternalChoice(InternalChoice),
+    Prefix(Prefix),
+    Skip(Skip),
+    Stop(Stop),
+}
+
+impl<E, P> Process<E> for CSPSig<E, P>
+where
+    E: Clone + Display + Eq + From<Tau> + From<Tick> + 'static,
+    P: Clone + Process<E>,
+    P::Cursor: Clone,
+{
+    type Cursor = CSPSigCursor<
+        <ExternalChoice<P> as Process<E>>::Cursor,
+        <InternalChoice<P> as Process<E>>::Cursor,
+        <Prefix<E, P> as Process<E>>::Cursor,
+        <Skip<E> as Process<E>>::Cursor,
+        <Stop<E> as Process<E>>::Cursor,
+    >;
+
+    fn root(&self) -> Self::Cursor {
+        match self {
+            CSPSig::ExternalChoice(this) => CSPSigCursor::ExternalChoice(this.root()),
+            CSPSig::InternalChoice(this) => CSPSigCursor::InternalChoice(this.root()),
+            CSPSig::Prefix(this) => CSPSigCursor::Prefix(this.root()),
+            CSPSig::Skip(this) => CSPSigCursor::Skip(this.root()),
+            CSPSig::Stop(this) => CSPSigCursor::Stop(this.root()),
+        }
+    }
+}
+
+impl<E, ExternalChoice, InternalChoice, Prefix, Skip, Stop> Cursor<E>
+    for CSPSigCursor<ExternalChoice, InternalChoice, Prefix, Skip, Stop>
+where
+    ExternalChoice: Cursor<E>,
+    InternalChoice: Cursor<E>,
+    Prefix: Cursor<E>,
+    Skip: Cursor<E>,
+    Stop: Cursor<E>,
+{
+    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
+        match self {
+            CSPSigCursor::ExternalChoice(this) => this.events(),
+            CSPSigCursor::InternalChoice(this) => this.events(),
+            CSPSigCursor::Prefix(this) => this.events(),
+            CSPSigCursor::Skip(this) => this.events(),
+            CSPSigCursor::Stop(this) => this.events(),
+        }
+    }
+
+    fn can_perform(&self, event: &E) -> bool {
+        match self {
+            CSPSigCursor::ExternalChoice(this) => this.can_perform(event),
+            CSPSigCursor::InternalChoice(this) => this.can_perform(event),
+            CSPSigCursor::Prefix(this) => this.can_perform(event),
+            CSPSigCursor::Skip(this) => this.can_perform(event),
+            CSPSigCursor::Stop(this) => this.can_perform(event),
+        }
+    }
+
+    fn perform(&mut self, event: &E) {
+        match self {
+            CSPSigCursor::ExternalChoice(this) => this.perform(event),
+            CSPSigCursor::InternalChoice(this) => this.perform(event),
+            CSPSigCursor::Prefix(this) => this.perform(event),
+            CSPSigCursor::Skip(this) => this.perform(event),
+            CSPSigCursor::Stop(this) => this.perform(event),
+        }
+    }
 }
 
 #[doc(hidden)]

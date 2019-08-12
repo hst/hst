@@ -35,7 +35,7 @@ pub fn prefix<E, P: From<Prefix<E, P>>>(initial: E, after: P) -> P {
 ///
 /// [`prefix`]: fn.prefix.html
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct Prefix<E, P>(pub(crate) E, pub(crate) P);
+pub struct Prefix<E, P>(E, P);
 
 impl<E: Display, P: Display> Display for Prefix<E, P> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -161,30 +161,20 @@ mod prefix_tests {
     use proptest_attr_macro::proptest;
 
     use crate::csp::CSP;
-    use crate::primitives::stop;
-    use crate::primitives::Stop;
+    use crate::process::initials;
     use crate::process::maximal_finite_traces;
     use crate::process::transitions;
     use crate::test_support::NumberedEvent;
     use crate::test_support::TestEvent;
 
     #[proptest]
-    fn check_prefix_events(initial: NumberedEvent) {
+    fn check_prefix(initial: NumberedEvent, after: CSP<TestEvent>) {
         let initial = TestEvent::from(initial);
-        // TODO: Use CSP<TestEvent> once all operators implement Process
-        let process = Prefix::<TestEvent, Stop<TestEvent>>(initial.clone(), stop());
-        let cursor = process.root();
-        assert_eq!(cursor.events().collect::<Vec<_>>(), vec![initial]);
-    }
-
-    #[proptest]
-    fn check_prefix_traces(initial: NumberedEvent) {
-        let initial = TestEvent::from(initial);
-        // TODO: Use CSP<TestEvent> once all operators implement Process
-        let process = Prefix::<TestEvent, Stop<TestEvent>>(initial.clone(), stop());
+        let process = prefix(initial.clone(), after.clone());
+        assert_eq!(initials(&process.root()), hashset! { initial.clone() });
         assert_eq!(
             maximal_finite_traces(process.root()),
-            hashset! {vec![initial]}
+            maximal_finite_traces(after.root()).map(|trace| trace.insert(0, initial.clone()))
         );
     }
 
