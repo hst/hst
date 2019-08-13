@@ -13,7 +13,7 @@
 // limitations under the License.
 // ------------------------------------------------------------------------------------------------
 
-//! Defines the external choice (□) operator.
+//! Defines the external choice (`□`) operator.
 
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -45,9 +45,7 @@ pub fn replicated_external_choice<P: From<ExternalChoice<P>>, I: IntoIterator<It
     ExternalChoice(ps).into()
 }
 
-/// The type of an [`external_choice`] process.
-///
-/// [`external_choice`]: fn.external_choice.html
+#[doc(hidden)]
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct ExternalChoice<P>(SmallVec<[P; 2]>);
 

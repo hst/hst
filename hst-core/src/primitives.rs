@@ -32,9 +32,7 @@ pub fn tau<E: From<Tau>>() -> E {
     Tau.into()
 }
 
-/// The type of the [`tau`] event.
-///
-/// [`tau`]: fn.tau.html
+#[doc(hidden)]
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Tau;
 
@@ -57,9 +55,7 @@ pub fn tick<E: From<Tick>>() -> E {
     Tick.into()
 }
 
-/// The type of the [`tick`] event.
-///
-/// [`tick`]: fn.tau.html
+#[doc(hidden)]
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Tick;
 
@@ -84,9 +80,7 @@ pub fn stop<E, P: From<Stop<E>>>() -> P {
     Stop(PhantomData).into()
 }
 
-/// The type of the [`Stop`] process.
-///
-/// [`stop`]: fn.stop.html
+#[doc(hidden)]
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Stop<E>(PhantomData<E>);
 
@@ -166,9 +160,7 @@ pub fn skip<E, P: From<Skip<E>>>() -> P {
     Skip(PhantomData).into()
 }
 
-/// The type of the [`Skip`] process.
-///
-/// [`skip`]: fn.stop.html
+#[doc(hidden)]
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Skip<E>(PhantomData<E>);
 

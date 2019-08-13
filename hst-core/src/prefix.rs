@@ -13,7 +13,7 @@
 // limitations under the License.
 // ------------------------------------------------------------------------------------------------
 
-//! Defines the prefix (→) operator.
+//! Defines the prefix (`→`) operator.
 
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -27,9 +27,7 @@ pub fn prefix<E, P: From<Prefix<E, P>>>(initial: E, after: P) -> P {
     Prefix(initial, after).into()
 }
 
-/// The type of a [`prefix`] process.
-///
-/// [`prefix`]: fn.prefix.html
+#[doc(hidden)]
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Prefix<E, P>(E, P);
 

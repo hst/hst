@@ -13,7 +13,7 @@
 // limitations under the License.
 // ------------------------------------------------------------------------------------------------
 
-//! Defines the internal choice (⊓) operator.
+//! Defines the internal choice (`⊓`) operator.
 
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -50,9 +50,7 @@ pub fn replicated_internal_choice<P: From<InternalChoice<P>>, I: IntoIterator<It
     InternalChoice(ps).into()
 }
 
-/// The type of an [`internal_choice`] process.
-///
-/// [`internal_choice`]: fn.internal_choice.html
+#[doc(hidden)]
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct InternalChoice<P>(SmallVec<[P; 2]>);
 

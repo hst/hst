@@ -34,9 +34,10 @@ use crate::process::Process;
 
 /// A process type that includes all of the primitive processes and operators in the CSP language.
 /// Note that you should never need to construct instances of this type directly; use the helper
-/// constructor for each process (e.g. [`stop`]) or operator (TBD) instead.
+/// constructor for each process (e.g. [`stop`]) or operator (e.g. [`prefix`]) instead.
 ///
 /// [`stop`]: ../primitives/fn.stop.html
+/// [`prefix`]: ../prefix/fn.prefix.html
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct CSP<E>(Rc<CSPSig<E, CSP<E>>>);
 
