@@ -7,3 +7,5 @@
 cc c401cc515634bed87b1548711c379acea7a4af97dab55ff737bf899ec958729b # shrinks to a = E₀, b = E₀
 cc ae2ff0a5d912c7ae067420fb584dd1cd9a78e5d70c8b61f343472de83cc5ead8 # shrinks to p = Stop ⊓ Stop, q = Skip
 cc e6b5cce1bab806db85cc2680df8d02bdf56f55a62b922058a68bd206a40d3fc2 # shrinks to p = Stop
+cc 98959f37d88f81d2ff44f53b42212d192d2a038dab465c022ddffb4f9a6562d5 # shrinks to p = Skip ; Stop
+cc f12635ac0c1e305c66d1f07f143aeb439b35ae0225b53e0c54619534421789ab # shrinks to p = Stop, q = ⊓ {Skip ; Stop}

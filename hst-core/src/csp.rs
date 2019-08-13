@@ -31,6 +31,7 @@ use crate::primitives::Tau;
 use crate::primitives::Tick;
 use crate::process::Cursor;
 use crate::process::Process;
+use crate::sequential_composition::SequentialComposition;
 
 /// A process type that includes all of the primitive processes and operators in the CSP language.
 /// Note that you should never need to construct instances of this type directly; use the helper
@@ -81,6 +82,7 @@ pub struct CSPCursor<E>(
             <ExternalChoice<CSP<E>> as Process<E>>::Cursor,
             <InternalChoice<CSP<E>> as Process<E>>::Cursor,
             <Prefix<E, CSP<E>> as Process<E>>::Cursor,
+            <SequentialComposition<CSP<E>> as Process<E>>::Cursor,
             <Skip<E> as Process<E>>::Cursor,
             <Stop<E> as Process<E>>::Cursor,
         >,
@@ -120,24 +122,27 @@ where
 #[derive(Clone, Eq, From, Hash, PartialEq)]
 pub enum CSPSig<E, P> {
     #[doc(hidden)]
-    Stop(Stop<E>),
-    #[doc(hidden)]
-    Skip(Skip<E>),
-    #[doc(hidden)]
-    Prefix(Prefix<E, P>),
-    #[doc(hidden)]
     ExternalChoice(ExternalChoice<P>),
     #[doc(hidden)]
     InternalChoice(InternalChoice<P>),
+    #[doc(hidden)]
+    Prefix(Prefix<E, P>),
+    #[doc(hidden)]
+    SequentialComposition(SequentialComposition<P>),
+    #[doc(hidden)]
+    Skip(Skip<E>),
+    #[doc(hidden)]
+    Stop(Stop<E>),
 }
 
 #[doc(hidden)]
 #[enum_derive(Debug, Display)]
 #[derive(Clone, Eq, PartialEq)]
-pub enum CSPSigCursor<ExternalChoice, InternalChoice, Prefix, Skip, Stop> {
+pub enum CSPSigCursor<ExternalChoice, InternalChoice, Prefix, SequentialComposition, Skip, Stop> {
     ExternalChoice(ExternalChoice),
     InternalChoice(InternalChoice),
     Prefix(Prefix),
+    SequentialComposition(SequentialComposition),
     Skip(Skip),
     Stop(Stop),
 }
@@ -152,6 +157,7 @@ where
         <ExternalChoice<P> as Process<E>>::Cursor,
         <InternalChoice<P> as Process<E>>::Cursor,
         <Prefix<E, P> as Process<E>>::Cursor,
+        <SequentialComposition<P> as Process<E>>::Cursor,
         <Skip<E> as Process<E>>::Cursor,
         <Stop<E> as Process<E>>::Cursor,
     >;
@@ -161,18 +167,20 @@ where
             CSPSig::ExternalChoice(this) => CSPSigCursor::ExternalChoice(this.root()),
             CSPSig::InternalChoice(this) => CSPSigCursor::InternalChoice(this.root()),
             CSPSig::Prefix(this) => CSPSigCursor::Prefix(this.root()),
+            CSPSig::SequentialComposition(this) => CSPSigCursor::SequentialComposition(this.root()),
             CSPSig::Skip(this) => CSPSigCursor::Skip(this.root()),
             CSPSig::Stop(this) => CSPSigCursor::Stop(this.root()),
         }
     }
 }
 
-impl<E, ExternalChoice, InternalChoice, Prefix, Skip, Stop> Cursor<E>
-    for CSPSigCursor<ExternalChoice, InternalChoice, Prefix, Skip, Stop>
+impl<E, ExternalChoice, InternalChoice, Prefix, SequentialComposition, Skip, Stop> Cursor<E>
+    for CSPSigCursor<ExternalChoice, InternalChoice, Prefix, SequentialComposition, Skip, Stop>
 where
     ExternalChoice: Cursor<E>,
     InternalChoice: Cursor<E>,
     Prefix: Cursor<E>,
+    SequentialComposition: Cursor<E>,
     Skip: Cursor<E>,
     Stop: Cursor<E>,
 {
@@ -181,6 +189,7 @@ where
             CSPSigCursor::ExternalChoice(this) => this.events(),
             CSPSigCursor::InternalChoice(this) => this.events(),
             CSPSigCursor::Prefix(this) => this.events(),
+            CSPSigCursor::SequentialComposition(this) => this.events(),
             CSPSigCursor::Skip(this) => this.events(),
             CSPSigCursor::Stop(this) => this.events(),
         }
@@ -191,6 +200,7 @@ where
             CSPSigCursor::ExternalChoice(this) => this.can_perform(event),
             CSPSigCursor::InternalChoice(this) => this.can_perform(event),
             CSPSigCursor::Prefix(this) => this.can_perform(event),
+            CSPSigCursor::SequentialComposition(this) => this.can_perform(event),
             CSPSigCursor::Skip(this) => this.can_perform(event),
             CSPSigCursor::Stop(this) => this.can_perform(event),
         }
@@ -201,6 +211,7 @@ where
             CSPSigCursor::ExternalChoice(this) => this.perform(event),
             CSPSigCursor::InternalChoice(this) => this.perform(event),
             CSPSigCursor::Prefix(this) => this.perform(event),
+            CSPSigCursor::SequentialComposition(this) => this.perform(event),
             CSPSigCursor::Skip(this) => this.perform(event),
             CSPSigCursor::Stop(this) => this.perform(event),
         }
@@ -226,6 +237,7 @@ mod proptest_support {
     use crate::prefix::prefix;
     use crate::primitives::skip;
     use crate::primitives::stop;
+    use crate::sequential_composition::sequential_composition;
     use crate::test_support::NumberedEvent;
     use crate::test_support::TestEvent;
 
@@ -261,6 +273,7 @@ mod proptest_support {
                     (inner.clone(), inner.clone()).prop_map(|(p, q)| external_choice(p, q)),
                     (inner.clone(), inner.clone()).prop_map(|(p, q)| internal_choice(p, q)),
                     vec(inner.clone(), 1..100).prop_map(replicated_internal_choice),
+                    (inner.clone(), inner.clone()).prop_map(|(p, q)| sequential_composition(p, q)),
                 ]
             })
             .boxed()

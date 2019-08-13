@@ -358,13 +358,13 @@ mod external_choice_tests {
 
     #[test]
     fn check_empty_external_choice() {
-        let process: CSP<TestEvent> = replicated_external_choice(vec![]);
+        let process: CSP<TestEvent> = dbg!(replicated_external_choice(vec![]));
         assert_eq!(maximal_finite_traces(process.root()), hashset! {vec![]});
     }
 
     #[proptest]
     fn check_singleton_external_choice(p: CSP<TestEvent>) {
-        let process = replicated_external_choice(vec![p.clone()]);
+        let process = dbg!(replicated_external_choice(vec![p.clone()]));
         assert_eq!(initials(&process.root()), initials(&p.root()));
         assert_eq!(
             maximal_finite_traces(process.root()),
@@ -374,7 +374,7 @@ mod external_choice_tests {
 
     #[proptest]
     fn check_doubleton_external_choice(p: CSP<TestEvent>, q: CSP<TestEvent>) {
-        let process = replicated_external_choice(vec![p.clone(), q.clone()]);
+        let process = dbg!(external_choice(p.clone(), q.clone()));
         assert_eq!(
             initials(&process.root()),
             &initials(&p.root()) | &initials(&q.root())
@@ -387,7 +387,11 @@ mod external_choice_tests {
 
     #[proptest]
     fn check_tripleton_external_choice(p: CSP<TestEvent>, q: CSP<TestEvent>, r: CSP<TestEvent>) {
-        let process = replicated_external_choice(vec![p.clone(), q.clone(), r.clone()]);
+        let process = dbg!(replicated_external_choice(vec![
+            p.clone(),
+            q.clone(),
+            r.clone()
+        ]));
         assert_eq!(
             initials(&process.root()),
             &(&initials(&p.root()) | &initials(&q.root())) | &initials(&r.root())

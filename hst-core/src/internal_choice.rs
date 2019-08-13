@@ -219,7 +219,7 @@ mod internal_choice_tests {
 
     #[proptest]
     fn check_singleton_internal_choice(p: CSP<TestEvent>) {
-        let process = replicated_internal_choice(vec![p.clone()]);
+        let process = dbg!(replicated_internal_choice(vec![p.clone()]));
         assert_eq!(initials(&process.root()), hashset! {tau()});
         assert_eq!(
             maximal_finite_traces(process.root()),
@@ -229,7 +229,7 @@ mod internal_choice_tests {
 
     #[proptest]
     fn check_doubleton_internal_choice(p: CSP<TestEvent>, q: CSP<TestEvent>) {
-        let process = internal_choice(p.clone(), q.clone());
+        let process = dbg!(internal_choice(p.clone(), q.clone()));
         assert_eq!(initials(&process.root()), hashset! {tau()});
         assert_eq!(
             maximal_finite_traces(process.root()),
@@ -239,7 +239,7 @@ mod internal_choice_tests {
 
     #[proptest]
     fn check_replicated_internal_choice_transitions(ps: NonemptyVec<CSP<TestEvent>>) {
-        let process = replicated_internal_choice(ps.vec.clone());
+        let process = dbg!(replicated_internal_choice(ps.vec.clone()));
         assert_eq!(initials(&process.root()), hashset! {tau()});
         assert_eq!(
             maximal_finite_traces(process.root()),

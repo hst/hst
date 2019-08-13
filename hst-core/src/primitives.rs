@@ -145,7 +145,7 @@ mod stop_tests {
 
     #[test]
     fn check_stop() {
-        let process: Stop<Tau> = stop();
+        let process: Stop<Tau> = dbg!(stop());
         assert_eq!(initials(&process.root()), hashset! {});
         assert_eq!(maximal_finite_traces(process.root()), hashset! {vec![]});
     }
@@ -251,7 +251,7 @@ mod skip_tests {
 
     #[test]
     fn check_skip() {
-        let process: Skip<TestEvent> = skip();
+        let process: Skip<TestEvent> = dbg!(skip());
         assert_eq!(initials(&process.root()), hashset! { tick() });
         assert_eq!(
             maximal_finite_traces(process.root()),

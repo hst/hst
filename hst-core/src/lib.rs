@@ -20,6 +20,7 @@ pub mod iterators;
 pub mod prefix;
 pub mod primitives;
 pub mod process;
+pub mod sequential_composition;
 
 #[cfg(test)]
 mod test_support;

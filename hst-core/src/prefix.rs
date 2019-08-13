@@ -126,7 +126,7 @@ mod prefix_tests {
     #[proptest]
     fn check_prefix(initial: NumberedEvent, after: CSP<TestEvent>) {
         let initial = TestEvent::from(initial);
-        let process = prefix(initial.clone(), after.clone());
+        let process = dbg!(prefix(initial.clone(), after.clone()));
         assert_eq!(initials(&process.root()), hashset! { initial.clone() });
         assert_eq!(
             maximal_finite_traces(process.root()),
