@@ -18,10 +18,8 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use auto_enums::enum_derive;
-
-use crate::process::Afters;
-use crate::process::Initials;
+use crate::process::Cursor;
+use crate::process::Process;
 
 /// Constructs a new _prefix_ process `a → P`.  This process performs event `a` and then behaves
 /// like process `P`.
@@ -52,39 +50,65 @@ impl<E: Display, P: Display> Debug for Prefix<E, P> {
 // 1) ─────────────
 //     a → P -a→ P
 
-impl<'a, E, P> Initials<'a, E> for Prefix<E, P>
-where
-    E: Clone + 'a,
-{
-    type Initials = std::iter::Once<E>;
-
-    fn initials(&'a self) -> Self::Initials {
-        // initials(a → P) = {a}
-        std::iter::once(self.0.clone())
-    }
+#[doc(hidden)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct PrefixCursor<E, P> {
+    state: PrefixState,
+    initial: E,
+    after: P,
 }
 
 #[doc(hidden)]
-#[enum_derive(Iterator)]
-pub enum PrefixAfters<Initial, NotInitial> {
-    Initial(Initial),
-    NotInitial(NotInitial),
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum PrefixState {
+    BeforeInitial,
+    AfterInitial,
 }
 
-impl<'a, E, P> Afters<'a, E, P> for Prefix<E, P>
+impl<E, P> Process<E> for Prefix<E, P>
 where
-    E: Eq,
-    P: Clone + 'a,
+    E: Clone + Display + Eq + 'static,
+    P: Process<E>,
 {
-    type Afters = PrefixAfters<std::iter::Once<P>, std::iter::Empty<P>>;
+    type Cursor = PrefixCursor<E, P::Cursor>;
 
-    fn afters(&'a self, initial: &E) -> Self::Afters {
-        // afters(a → P, a) = P
-        if *initial == self.0 {
-            PrefixAfters::Initial(std::iter::once(self.1.clone()))
-        } else {
-            PrefixAfters::NotInitial(std::iter::empty())
+    fn root(&self) -> Self::Cursor {
+        PrefixCursor {
+            state: PrefixState::BeforeInitial,
+            initial: self.0.clone(),
+            after: self.1.root(),
         }
+    }
+}
+
+impl<E, P> Cursor<E> for PrefixCursor<E, P>
+where
+    E: Clone + Display + Eq + 'static,
+    P: Cursor<E>,
+{
+    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
+        match self.state {
+            PrefixState::BeforeInitial => Box::new(std::iter::once(self.initial.clone())),
+            PrefixState::AfterInitial => self.after.events(),
+        }
+    }
+
+    fn can_perform(&self, event: &E) -> bool {
+        match self.state {
+            PrefixState::BeforeInitial => *event == self.initial,
+            PrefixState::AfterInitial => self.after.can_perform(event),
+        }
+    }
+
+    fn perform(&mut self, event: &E) {
+        if self.state == PrefixState::AfterInitial {
+            self.after.perform(event);
+            return;
+        }
+        if *event != self.initial {
+            panic!("Prefix cannot perform {}", event);
+        }
+        self.state = PrefixState::AfterInitial;
     }
 }
 
@@ -92,19 +116,23 @@ where
 mod prefix_tests {
     use super::*;
 
-    use maplit::hashmap;
+    use maplit::hashset;
     use proptest_attr_macro::proptest;
 
     use crate::csp::CSP;
-    use crate::process::transitions;
+    use crate::process::initials;
+    use crate::process::maximal_finite_traces;
     use crate::test_support::NumberedEvent;
     use crate::test_support::TestEvent;
 
     #[proptest]
-    fn check_prefix_transitions(initial: NumberedEvent, after: CSP<TestEvent>) {
+    fn check_prefix(initial: NumberedEvent, after: CSP<TestEvent>) {
         let initial = TestEvent::from(initial);
         let process = prefix(initial.clone(), after.clone());
-        let transitions = transitions(&process);
-        assert_eq!(transitions, hashmap! { initial => vec![after] });
+        assert_eq!(initials(&process.root()), hashset! { initial.clone() });
+        assert_eq!(
+            maximal_finite_traces(process.root()),
+            maximal_finite_traces(after.root()).map(|trace| trace.insert(0, initial.clone()))
+        );
     }
 }
