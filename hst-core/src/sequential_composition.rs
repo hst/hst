@@ -63,27 +63,17 @@ impl<P: Debug + Display> Debug for SequentialComposition<P> {
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct SequentialCompositionCursor<E, C> {
     phantom: PhantomData<E>,
-    state: SequentialCompositionState,
-    p: C,
-    // ✔ events are ambiguous; they could represent P performing a τ, or P performing a ✔ that we
-    // "hide" as we switch over to behaving like Q.  That means we could start behaving like Q at
-    // multiple points, and need to keep track of Q's current state from all of those possible
-    // starting points.  The Option lets us "deactive" one of those states if we retroactively
-    // discover that it wasn't possible, by not being able to perform some later visible event.
+    /// The root state of Q.  We need to keep a copy of this around since we might start behaving
+    /// like Q (from its root state) at multiple points.
+    q_root: C,
+    /// If we might still be behaving like P, this holds P's current state.
+    p: Option<C>,
+    /// ✔ events are ambiguous; they could represent P performing a τ, or P performing a ✔ that we
+    /// "hide" as we switch over to behaving like Q.  That means we could start behaving like Q at
+    /// multiple points, and need to keep track of Q's current state from all of those possible
+    /// starting points.  The Option lets us "deactivate" one of those states if we retroactively
+    /// discover that it wasn't possible, by not being able to perform some later visible event.
     qs: Vec<Option<C>>,
-}
-
-#[doc(hidden)]
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum SequentialCompositionState {
-    // We are definitely still in the phase where we've behaving like P.
-    BeforeTick,
-    // We are definitely in the phase where we've behaving like Q.
-    AfterTick,
-    // We could be behaving like either P or Q, because we don't have enough information yet to
-    // know whether a τ that we performed was a real τ from P, or a ✔ from P that we transformed
-    // into a τ.
-    Shrug,
 }
 
 struct Subcursors<'a, C>(&'a Vec<Option<C>>);
@@ -94,7 +84,6 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("SequentialCompositionCursor")
-            .field("state", &self.state)
             .field("p", &self.p)
             .field("qs", &Subcursors(&self.qs))
             .finish()
@@ -116,15 +105,16 @@ impl<E, P> Process<E> for SequentialComposition<P>
 where
     E: Eq + From<Tau> + From<Tick> + 'static,
     P: Process<E>,
+    P::Cursor: Clone,
 {
     type Cursor = SequentialCompositionCursor<E, P::Cursor>;
 
     fn root(&self) -> Self::Cursor {
         SequentialCompositionCursor {
             phantom: PhantomData,
-            state: SequentialCompositionState::BeforeTick,
-            p: self.0.root(),
-            qs: vec![Some(self.1.root())],
+            q_root: self.1.root(),
+            p: Some(self.0.root()),
+            qs: Vec::new(),
         }
     }
 }
@@ -132,70 +122,55 @@ where
 impl<E, C> SequentialCompositionCursor<E, C>
 where
     E: Eq + From<Tau> + From<Tick>,
-    C: Cursor<E>,
+    C: Clone + Cursor<E>,
 {
     fn p_events(&self) -> impl Iterator<Item = E> + '_ {
-        self.p.events().map(|e| if e == tick() { tau() } else { e })
+        self.p
+            .iter()
+            .flat_map(Cursor::events)
+            .map(|e| if e == tick() { tau() } else { e })
     }
 
     fn p_can_perform(&self, event: &E) -> bool {
+        let p = match &self.p {
+            Some(p) => p,
+            None => return false,
+        };
+
         if *event == tick() {
             false
         } else if *event == tau() {
-            self.p.can_perform(event) || self.p.can_perform(&tick())
+            p.can_perform(event) || p.can_perform(&tick())
         } else {
-            self.p.can_perform(event)
+            p.can_perform(event)
         }
     }
 
     fn p_perform(&mut self, event: &E) {
+        let p = match &mut self.p {
+            Some(p) => p,
+            None => return,
+        };
+
         if *event == tick() {
             return;
         }
 
+        // If P can perform a ✔, then we can perform a τ and become Q after performing this event.
         if *event == tau() {
-            // If P can perform a τ (not a ✔ transformed into a τ), then we might still be
-            // in the P process after performing this event.
-            let could_be_before = self.p.can_perform(event);
-
-            // If P can perform a ✔, then we might become Q after performing this event.
-            let could_be_after = self.p.can_perform(&tick());
-
-            if !could_be_before && !could_be_after {
-                // We were in a state where we thought that we could be behaving like P, but P
-                // can't perform this event.  That means we can't be behaving like P after all!
-                // We'd better already be in a state where we could be performing like Q, since
-                // that's now the only remaining possibility.
-                assert!(self.state != SequentialCompositionState::BeforeTick);
-                self.state = SequentialCompositionState::AfterTick;
-                return;
+            if p.can_perform(&tick()) {
+                self.qs.push(Some(self.q_root.clone()));
             }
-
-            if could_be_before {
-                self.p.perform(event);
-            }
-            if could_be_after {
-                if could_be_before {
-                    self.state = SequentialCompositionState::Shrug;
-                } else {
-                    self.state = SequentialCompositionState::AfterTick;
-                }
-            }
-
-            return;
         }
 
-        if self.p.can_perform(event) {
-            self.p.perform(event);
-            return;
+        if p.can_perform(event) {
+            // For any other event (including τ), if P can perform it, so can we.
+            p.perform(event);
+        } else {
+            // If we couldn't perform the event, then we couldn't have been able to behave like P
+            // at this point!
+            self.p.take();
         }
-
-        // We were in a state where we thought that we could be behaving like P, but P can't
-        // perform this event.  That means we can't be behaving like P after all!  We'd better
-        // already be in a state where we could be performing like Q, since that's now the only
-        // remaining possibility.
-        assert!(self.state != SequentialCompositionState::BeforeTick);
-        self.state = SequentialCompositionState::AfterTick;
     }
 
     fn q_events(&self) -> impl Iterator<Item = E> + '_ {
@@ -222,39 +197,19 @@ where
 impl<E, C> Cursor<E> for SequentialCompositionCursor<E, C>
 where
     E: Eq + From<Tau> + From<Tick>,
-    C: Cursor<E>,
+    C: Clone + Cursor<E>,
 {
     fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
-        match self.state {
-            SequentialCompositionState::BeforeTick => Box::new(self.p_events()),
-            SequentialCompositionState::AfterTick => Box::new(self.q_events()),
-            SequentialCompositionState::Shrug => {
-                // If we don't know if we're in P or Q, we have to combine the possible events from
-                // both of them!
-                Box::new(self.p_events().chain(self.q_events()))
-            }
-        }
+        Box::new(self.p_events().chain(self.q_events()))
     }
 
     fn can_perform(&self, event: &E) -> bool {
-        match self.state {
-            SequentialCompositionState::BeforeTick => self.p_can_perform(event),
-            SequentialCompositionState::AfterTick => self.q_can_perform(event),
-            SequentialCompositionState::Shrug => {
-                self.p_can_perform(event) || self.q_can_perform(event)
-            }
-        }
+        self.p_can_perform(event) || self.q_can_perform(event)
     }
 
     fn perform(&mut self, event: &E) {
-        match self.state {
-            SequentialCompositionState::BeforeTick => self.p_perform(event),
-            SequentialCompositionState::AfterTick => self.q_perform(event),
-            SequentialCompositionState::Shrug => {
-                self.p_perform(event);
-                self.q_perform(event);
-            }
-        }
+        self.q_perform(event);
+        self.p_perform(event);
     }
 }
 
