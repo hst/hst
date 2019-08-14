@@ -69,7 +69,7 @@ impl Arbitrary for NumberedEvent {
     type Strategy = BoxedStrategy<NumberedEvent>;
 
     fn arbitrary_with(_args: ()) -> Self::Strategy {
-        any::<u32>().prop_map_into().boxed()
+        (0..100u32).prop_map_into().boxed()
     }
 }
 
@@ -121,7 +121,7 @@ where
     type Strategy = BoxedStrategy<NonemptyVec<T>>;
 
     fn arbitrary_with(_args: ()) -> Self::Strategy {
-        vec(any::<T>(), 1..100)
+        vec(any::<T>(), 1..16)
             .prop_map(|vec| NonemptyVec { vec })
             .boxed()
     }

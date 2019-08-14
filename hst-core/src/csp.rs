@@ -232,6 +232,7 @@ mod proptest_support {
     use proptest::strategy::Strategy;
 
     use crate::external_choice::external_choice;
+    use crate::external_choice::replicated_external_choice;
     use crate::internal_choice::internal_choice;
     use crate::internal_choice::replicated_internal_choice;
     use crate::prefix::prefix;
@@ -262,21 +263,26 @@ mod proptest_support {
         type Strategy = BoxedStrategy<CSP<E>>;
 
         fn arbitrary_with(_args: ()) -> Self::Strategy {
-            let leaf = prop_oneof![Just(stop()), Just(skip())];
-            leaf.prop_recursive(8, 256, 100, move |inner| {
-                prop_oneof![
-                    // We use NumberedEvent here because you shouldn't really create processes that
-                    // explicitly refer to Tau and Tick; those should only be created as part of
-                    // the CSP operators.
-                    (E::nameable_events(), inner.clone())
-                        .prop_map(|(initial, after)| prefix(initial.into(), after)),
-                    (inner.clone(), inner.clone()).prop_map(|(p, q)| external_choice(p, q)),
-                    (inner.clone(), inner.clone()).prop_map(|(p, q)| internal_choice(p, q)),
-                    vec(inner.clone(), 1..100).prop_map(replicated_internal_choice),
-                    (inner.clone(), inner.clone()).prop_map(|(p, q)| sequential_composition(p, q)),
-                ]
-            })
-            .boxed()
+            let leaf = prop_oneof![Just(stop()), Just(skip()),];
+            let basic = leaf.prop_recursive(8, 16, 2, move |inner| {
+                // We use NumberedEvent here because you shouldn't really create processes that
+                // explicitly refer to Tau and Tick; those should only be created as part of
+                // the CSP operators.
+                (E::nameable_events(), inner.clone())
+                    .prop_map(|(initial, after)| prefix(initial.into(), after))
+            });
+            basic
+                .prop_recursive(4, 64, 16, move |inner| {
+                    prop_oneof![
+                        (inner.clone(), inner.clone()).prop_map(|(p, q)| external_choice(p, q)),
+                        (inner.clone(), inner.clone()).prop_map(|(p, q)| internal_choice(p, q)),
+                        (inner.clone(), inner.clone())
+                            .prop_map(|(p, q)| sequential_composition(p, q)),
+                        vec(inner.clone(), 3..8).prop_map(replicated_external_choice),
+                        vec(inner.clone(), 3..8).prop_map(replicated_internal_choice),
+                    ]
+                })
+                .boxed()
         }
     }
 

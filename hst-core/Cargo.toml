@@ -7,10 +7,10 @@ edition = "2018"
 [dependencies]
 auto_enums = "0.5"
 auto_from = "0.3"
+maplit = "1.0"
 smallbitvec = "2.4"
 smallvec = "0.6"
 
 [dev-dependencies]
-maplit = "1.0"
 proptest = "0.9"
 proptest-attr-macro = "0.1"

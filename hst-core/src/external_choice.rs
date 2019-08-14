@@ -354,6 +354,8 @@ mod external_choice_tests {
     use crate::csp::CSP;
     use crate::process::initials;
     use crate::process::maximal_finite_traces;
+    use crate::process::MaximalTraces;
+    use crate::test_support::NonemptyVec;
     use crate::test_support::TestEvent;
 
     #[test]
@@ -386,21 +388,23 @@ mod external_choice_tests {
     }
 
     #[proptest]
-    fn check_tripleton_external_choice(p: CSP<TestEvent>, q: CSP<TestEvent>, r: CSP<TestEvent>) {
-        let process = dbg!(replicated_external_choice(vec![
-            p.clone(),
-            q.clone(),
-            r.clone()
-        ]));
+    fn check_replicated_external_choice(ps: NonemptyVec<CSP<TestEvent>>) {
+        let process = dbg!(replicated_external_choice(ps.vec.clone()));
         assert_eq!(
             initials(&process.root()),
-            &(&initials(&p.root()) | &initials(&q.root())) | &initials(&r.root())
+            ps.vec
+                .iter()
+                .map(Process::root)
+                .map(|cursor| initials(&cursor))
+                .fold(hashset! {}, |prev, next| &prev | &next)
         );
         assert_eq!(
             maximal_finite_traces(process.root()),
-            maximal_finite_traces(p.root())
-                + maximal_finite_traces(q.root())
-                + maximal_finite_traces(r.root())
+            ps.vec
+                .iter()
+                .map(Process::root)
+                .map(maximal_finite_traces)
+                .sum::<MaximalTraces<_>>()
         );
     }
 }

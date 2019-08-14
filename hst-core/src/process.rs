@@ -22,6 +22,8 @@ use std::iter::FromIterator;
 use std::iter::Sum;
 use std::ops::Add;
 
+use maplit::hashset;
+
 use crate::primitives::tau;
 use crate::primitives::Tau;
 
@@ -95,7 +97,7 @@ where
     E: Eq + Hash,
 {
     pub fn new() -> MaximalTraces<E> {
-        MaximalTraces(HashSet::new())
+        MaximalTraces(hashset! {vec![]})
     }
 
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a Vec<E>> {
