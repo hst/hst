@@ -146,14 +146,22 @@ mod stop_tests {
     use super::*;
 
     use maplit::hashset;
+    use proptest_attr_macro::proptest;
 
-    use crate::process::initials;
+    use crate::event::Alphabet;
     use crate::process::maximal_finite_traces;
+    use crate::test_support::TestEvent;
+
+    #[proptest]
+    fn check_stop_initials(event: TestEvent) {
+        let process: Stop<Tau> = dbg!(stop());
+        let alphabet = process.root().initials();
+        assert!(!alphabet.contains(&event));
+    }
 
     #[test]
-    fn check_stop() {
+    fn check_stop_traces() {
         let process: Stop<Tau> = dbg!(stop());
-        assert_eq!(initials(&process.root()), hashset! {});
         assert_eq!(maximal_finite_traces(process.root()), hashset! {vec![]});
     }
 }
