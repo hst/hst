@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 auto_enums = "0.5"
 auto_from = "0.3"
+itertools = "0.8"
 maplit = "1.0"
 smallbitvec = "2.4"
 smallvec = "0.6"

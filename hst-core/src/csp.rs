@@ -75,7 +75,7 @@ where
 }
 
 #[doc(hidden)]
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub struct CSPCursor<E>(
     Box<
         CSPSigCursor<
@@ -137,7 +137,7 @@ pub enum CSPSig<E, P> {
 
 #[doc(hidden)]
 #[enum_derive(Debug, Display)]
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub enum CSPSigCursor<ExternalChoice, InternalChoice, Prefix, SequentialComposition, Skip, Stop> {
     ExternalChoice(ExternalChoice),
     InternalChoice(InternalChoice),
