@@ -22,7 +22,7 @@ use std::rc::Rc;
 use auto_enums::enum_derive;
 use auto_from::From;
 
-use crate::event::EmptyAlphabet;
+use crate::event::Alphabet;
 use crate::external_choice::ExternalChoice;
 use crate::internal_choice::InternalChoice;
 use crate::prefix::Prefix;
@@ -105,10 +105,10 @@ impl<E> Cursor<E> for CSPCursor<E>
 where
     E: Clone + Display + Eq + From<Tau> + From<Tick> + 'static,
 {
-    type Alphabet = EmptyAlphabet;
+    type Alphabet = CSPAlphabet<E>;
 
-    fn initials(&self) -> EmptyAlphabet {
-        EmptyAlphabet
+    fn initials(&self) -> Self::Alphabet {
+        CSPAlphabet(Box::new(self.0.initials()))
     }
 
     fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
@@ -121,6 +121,32 @@ where
 
     fn perform(&mut self, event: &E) {
         self.0.perform(event);
+    }
+}
+
+#[doc(hidden)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CSPAlphabet<E>(
+    Box<
+        CSPSigAlphabet<
+            <<ExternalChoice<CSP<E>> as Process<E>>::Cursor as Cursor<E>>::Alphabet,
+            <<InternalChoice<CSP<E>> as Process<E>>::Cursor as Cursor<E>>::Alphabet,
+            <<Prefix<E, CSP<E>> as Process<E>>::Cursor as Cursor<E>>::Alphabet,
+            <<SequentialComposition<CSP<E>> as Process<E>>::Cursor as Cursor<E>>::Alphabet,
+            <<Skip<E> as Process<E>>::Cursor as Cursor<E>>::Alphabet,
+            <<Stop<E> as Process<E>>::Cursor as Cursor<E>>::Alphabet,
+        >,
+    >,
+)
+where
+    E: Clone + Display + Eq + From<Tau> + From<Tick> + 'static;
+
+impl<E> Alphabet<E> for CSPAlphabet<E>
+where
+    E: Clone + Display + Eq + From<Tau> + From<Tick> + 'static,
+{
+    fn contains(&self, event: &E) -> bool {
+        self.0.contains(event)
     }
 }
 
@@ -191,10 +217,26 @@ where
     Skip: Cursor<E>,
     Stop: Cursor<E>,
 {
-    type Alphabet = EmptyAlphabet;
+    type Alphabet = CSPSigAlphabet<
+        ExternalChoice::Alphabet,
+        InternalChoice::Alphabet,
+        Prefix::Alphabet,
+        SequentialComposition::Alphabet,
+        Skip::Alphabet,
+        Stop::Alphabet,
+    >;
 
-    fn initials(&self) -> EmptyAlphabet {
-        EmptyAlphabet
+    fn initials(&self) -> Self::Alphabet {
+        match self {
+            CSPSigCursor::ExternalChoice(this) => CSPSigAlphabet::ExternalChoice(this.initials()),
+            CSPSigCursor::InternalChoice(this) => CSPSigAlphabet::InternalChoice(this.initials()),
+            CSPSigCursor::Prefix(this) => CSPSigAlphabet::Prefix(this.initials()),
+            CSPSigCursor::SequentialComposition(this) => {
+                CSPSigAlphabet::SequentialComposition(this.initials())
+            }
+            CSPSigCursor::Skip(this) => CSPSigAlphabet::Skip(this.initials()),
+            CSPSigCursor::Stop(this) => CSPSigAlphabet::Stop(this.initials()),
+        }
     }
 
     fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
@@ -227,6 +269,40 @@ where
             CSPSigCursor::SequentialComposition(this) => this.perform(event),
             CSPSigCursor::Skip(this) => this.perform(event),
             CSPSigCursor::Stop(this) => this.perform(event),
+        }
+    }
+}
+
+#[doc(hidden)]
+#[enum_derive(Debug, Display)]
+#[derive(Clone, Eq, PartialEq)]
+pub enum CSPSigAlphabet<ExternalChoice, InternalChoice, Prefix, SequentialComposition, Skip, Stop> {
+    ExternalChoice(ExternalChoice),
+    InternalChoice(InternalChoice),
+    Prefix(Prefix),
+    SequentialComposition(SequentialComposition),
+    Skip(Skip),
+    Stop(Stop),
+}
+
+impl<E, ExternalChoice, InternalChoice, Prefix, SequentialComposition, Skip, Stop> Alphabet<E>
+    for CSPSigAlphabet<ExternalChoice, InternalChoice, Prefix, SequentialComposition, Skip, Stop>
+where
+    ExternalChoice: Alphabet<E>,
+    InternalChoice: Alphabet<E>,
+    Prefix: Alphabet<E>,
+    SequentialComposition: Alphabet<E>,
+    Skip: Alphabet<E>,
+    Stop: Alphabet<E>,
+{
+    fn contains(&self, event: &E) -> bool {
+        match self {
+            CSPSigAlphabet::ExternalChoice(this) => this.contains(event),
+            CSPSigAlphabet::InternalChoice(this) => this.contains(event),
+            CSPSigAlphabet::Prefix(this) => this.contains(event),
+            CSPSigAlphabet::SequentialComposition(this) => this.contains(event),
+            CSPSigAlphabet::Skip(this) => this.contains(event),
+            CSPSigAlphabet::Stop(this) => this.contains(event),
         }
     }
 }
