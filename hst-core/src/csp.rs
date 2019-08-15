@@ -22,6 +22,7 @@ use std::rc::Rc;
 use auto_enums::enum_derive;
 use auto_from::From;
 
+use crate::event::EmptyAlphabet;
 use crate::external_choice::ExternalChoice;
 use crate::internal_choice::InternalChoice;
 use crate::prefix::Prefix;
@@ -104,6 +105,12 @@ impl<E> Cursor<E> for CSPCursor<E>
 where
     E: Clone + Display + Eq + From<Tau> + From<Tick> + 'static,
 {
+    type Alphabet = EmptyAlphabet;
+
+    fn initials(&self) -> EmptyAlphabet {
+        EmptyAlphabet
+    }
+
     fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
         self.0.events()
     }
@@ -184,6 +191,12 @@ where
     Skip: Cursor<E>,
     Stop: Cursor<E>,
 {
+    type Alphabet = EmptyAlphabet;
+
+    fn initials(&self) -> EmptyAlphabet {
+        EmptyAlphabet
+    }
+
     fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
         match self {
             CSPSigCursor::ExternalChoice(this) => this.events(),

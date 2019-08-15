@@ -23,6 +23,7 @@ use smallbitvec::SmallBitVec;
 use smallvec::smallvec;
 use smallvec::SmallVec;
 
+use crate::event::EmptyAlphabet;
 use crate::primitives::tau;
 use crate::primitives::Tau;
 use crate::process::Cursor;
@@ -156,6 +157,12 @@ where
     E: Display + Eq + From<Tau>,
     C: Cursor<E>,
 {
+    type Alphabet = EmptyAlphabet;
+
+    fn initials(&self) -> EmptyAlphabet {
+        EmptyAlphabet
+    }
+
     fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
         match self.state {
             InternalChoiceState::BeforeTau => Box::new(std::iter::once(tau())),

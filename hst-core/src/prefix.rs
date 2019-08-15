@@ -18,6 +18,7 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use crate::event::EmptyAlphabet;
 use crate::process::Cursor;
 use crate::process::Process;
 
@@ -84,6 +85,12 @@ where
     E: Clone + Display + Eq + 'static,
     P: Cursor<E>,
 {
+    type Alphabet = EmptyAlphabet;
+
+    fn initials(&self) -> EmptyAlphabet {
+        EmptyAlphabet
+    }
+
     fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
         match self.state {
             PrefixState::BeforeInitial => Box::new(std::iter::once(self.initial.clone())),

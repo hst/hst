@@ -19,6 +19,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
+use crate::event::EmptyAlphabet;
 use crate::primitives::tau;
 use crate::primitives::tick;
 use crate::primitives::Tau;
@@ -199,6 +200,12 @@ where
     E: Eq + From<Tau> + From<Tick>,
     C: Clone + Cursor<E>,
 {
+    type Alphabet = EmptyAlphabet;
+
+    fn initials(&self) -> EmptyAlphabet {
+        EmptyAlphabet
+    }
+
     fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
         Box::new(self.p_events().chain(self.q_events()))
     }

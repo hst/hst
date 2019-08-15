@@ -24,6 +24,7 @@ use std::ops::Add;
 
 use maplit::hashset;
 
+use crate::event::Alphabet;
 use crate::primitives::tau;
 use crate::primitives::Tau;
 
@@ -41,6 +42,13 @@ pub trait Process<E> {
 /// Tracks the current state of a CSP process, which defines which events it's willing to perform
 /// now.
 pub trait Cursor<E> {
+    /// The type that describes the set of events that the process is willing to perform in its
+    /// current state.
+    type Alphabet: Alphabet<E>;
+
+    /// Returns the set of events that the process is willing to perform in its current state.
+    fn initials(&self) -> Self::Alphabet;
+
     /// Returns the set of events that the process is willing to perform in its current state.
     ///
     /// (The result represents a _set_ of events, but to make it easier to implement this method,

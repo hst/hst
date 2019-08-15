@@ -19,6 +19,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
+use crate::event::EmptyAlphabet;
 use crate::process::Cursor;
 use crate::process::Process;
 
@@ -121,6 +122,12 @@ impl<E> Cursor<E> for StopCursor<E>
 where
     E: Display + 'static,
 {
+    type Alphabet = EmptyAlphabet;
+
+    fn initials(&self) -> EmptyAlphabet {
+        EmptyAlphabet
+    }
+
     fn events(&self) -> Box<dyn Iterator<Item = E>> {
         Box::new(std::iter::empty())
     }
@@ -214,6 +221,12 @@ impl<E> Cursor<E> for SkipCursor<E>
 where
     E: Display + Eq + From<Tick> + 'static,
 {
+    type Alphabet = EmptyAlphabet;
+
+    fn initials(&self) -> EmptyAlphabet {
+        EmptyAlphabet
+    }
+
     fn events(&self) -> Box<dyn Iterator<Item = E>> {
         match self.state {
             SkipState::BeforeTick => Box::new(std::iter::once(tick())),
