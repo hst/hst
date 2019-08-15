@@ -18,7 +18,7 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use crate::event::EmptyAlphabet;
+use crate::event::Alphabet;
 use crate::process::Cursor;
 use crate::process::Process;
 
@@ -64,6 +64,13 @@ pub enum PrefixState {
     AfterInitial,
 }
 
+#[doc(hidden)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum PrefixAlphabet<E, A> {
+    BeforeInitial(E),
+    AfterInitial(A),
+}
+
 impl<E, P> Process<E> for Prefix<E, P>
 where
     E: Clone + Display + Eq + 'static,
@@ -80,15 +87,18 @@ where
     }
 }
 
-impl<E, P> Cursor<E> for PrefixCursor<E, P>
+impl<E, C> Cursor<E> for PrefixCursor<E, C>
 where
     E: Clone + Display + Eq + 'static,
-    P: Cursor<E>,
+    C: Cursor<E>,
 {
-    type Alphabet = EmptyAlphabet;
+    type Alphabet = PrefixAlphabet<E, C::Alphabet>;
 
-    fn initials(&self) -> EmptyAlphabet {
-        EmptyAlphabet
+    fn initials(&self) -> PrefixAlphabet<E, C::Alphabet> {
+        match self.state {
+            PrefixState::BeforeInitial => PrefixAlphabet::BeforeInitial(self.initial.clone()),
+            PrefixState::AfterInitial => PrefixAlphabet::AfterInitial(self.after.initials()),
+        }
     }
 
     fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
@@ -117,24 +127,50 @@ where
     }
 }
 
+impl<E, A> Alphabet<E> for PrefixAlphabet<E, A>
+where
+    E: Eq,
+    A: Alphabet<E>,
+{
+    fn contains(&self, event: &E) -> bool {
+        match self {
+            PrefixAlphabet::BeforeInitial(initial) => initial == event,
+            PrefixAlphabet::AfterInitial(alphabet) => alphabet.contains(event),
+        }
+    }
+}
+
 #[cfg(test)]
 mod prefix_tests {
     use super::*;
 
-    use maplit::hashset;
     use proptest_attr_macro::proptest;
 
     use crate::csp::CSP;
-    use crate::process::initials;
     use crate::process::maximal_finite_traces;
     use crate::test_support::NumberedEvent;
     use crate::test_support::TestEvent;
 
     #[proptest]
-    fn check_prefix(initial: NumberedEvent, after: CSP<TestEvent>) {
+    fn check_prefix_initials(event: TestEvent, initial: NumberedEvent, after: CSP<TestEvent>) {
         let initial = TestEvent::from(initial);
         let process = dbg!(prefix(initial.clone(), after.clone()));
-        assert_eq!(initials(&process.root()), hashset! { initial.clone() });
+
+        let alphabet = process.root().initials();
+        assert!(alphabet.contains(&initial));
+        assert_eq!(alphabet.contains(&event), event == initial);
+
+        let alphabet = process.root().after(&initial).initials();
+        assert_eq!(
+            alphabet.contains(&event),
+            after.root().initials().contains(&event)
+        );
+    }
+
+    #[proptest]
+    fn check_prefix_traces(initial: NumberedEvent, after: CSP<TestEvent>) {
+        let initial = TestEvent::from(initial);
+        let process = dbg!(prefix(initial.clone(), after.clone()));
         assert_eq!(
             maximal_finite_traces(process.root()),
             maximal_finite_traces(after.root()).map(|trace| trace.insert(0, initial.clone()))

@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc d4fb8dea255473a1940378f27b7b72f39de615516954053c36a7c1e67c4a9ed2 # shrinks to initial = E₀, after = Skip ; Stop
+cc 652468018bc84b5bf885dcf405934e0f113702c53976f78c411bde31be8a7b0c # shrinks to event = E₈₇, initial = E₈₇, after = Stop
