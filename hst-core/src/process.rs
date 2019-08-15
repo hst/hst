@@ -69,6 +69,17 @@ pub trait Cursor<E> {
     /// performing a particular event.  Panics if the process is not willing to perform `event` in
     /// its current state.
     fn perform(&mut self, event: &E);
+
+    /// Returns a new cursor representing the process's state after performing a particular event.
+    /// Panics if the process is not willing to perform `event` in its current state.
+    fn after(&self, event: &E) -> Self
+    where
+        Self: Clone,
+    {
+        let mut after = self.clone();
+        after.perform(event);
+        after
+    }
 }
 
 /// Returns the initial events of a process.  This includes invisible events like τ.
