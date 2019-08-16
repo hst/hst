@@ -151,6 +151,43 @@ where
 }
 
 #[doc(hidden)]
+pub struct CSPAlphabetIterator<E>(
+    Box<CSPSigAlphabetIterator<
+        <<<ExternalChoice<CSP<E>> as Process<E>>::Cursor as Cursor<E>>::Alphabet as IntoIterator>::IntoIter,
+        <<<InternalChoice<CSP<E>> as Process<E>>::Cursor as Cursor<E>>::Alphabet as IntoIterator>::IntoIter,
+        <<<Prefix<E, CSP<E>> as Process<E>>::Cursor as Cursor<E>>::Alphabet as IntoIterator>::IntoIter,
+        <<<SequentialComposition<CSP<E>> as Process<E>>::Cursor as Cursor<E>>::Alphabet as IntoIterator>::IntoIter,
+        <<<Skip<E> as Process<E>>::Cursor as Cursor<E>>::Alphabet as IntoIterator>::IntoIter,
+        <<<Stop<E> as Process<E>>::Cursor as Cursor<E>>::Alphabet as IntoIterator>::IntoIter,
+    >>
+)
+where
+    E: Clone + Display + Eq + From<Tau> + From<Tick> + 'static;
+
+impl<E> Iterator for CSPAlphabetIterator<E>
+where
+    E: Clone + Display + Eq + From<Tau> + From<Tick> + 'static,
+{
+    type Item = E;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl<E> IntoIterator for CSPAlphabet<E>
+where
+    E: Clone + Display + Eq + From<Tau> + From<Tick> + 'static,
+{
+    type Item = E;
+    type IntoIter = CSPAlphabetIterator<E>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        CSPAlphabetIterator(Box::new(self.0.into_iter()))
+    }
+}
+
+#[doc(hidden)]
 #[enum_derive(Debug, Display)]
 #[derive(Clone, Eq, From, Hash, PartialEq)]
 pub enum CSPSig<E, P> {
@@ -303,6 +340,63 @@ where
             CSPSigAlphabet::SequentialComposition(this) => this.contains(event),
             CSPSigAlphabet::Skip(this) => this.contains(event),
             CSPSigAlphabet::Stop(this) => this.contains(event),
+        }
+    }
+}
+
+#[doc(hidden)]
+#[enum_derive(Iterator)]
+#[derive(Clone, Eq, PartialEq)]
+pub enum CSPSigAlphabetIterator<
+    ExternalChoice,
+    InternalChoice,
+    Prefix,
+    SequentialComposition,
+    Skip,
+    Stop,
+> {
+    ExternalChoice(ExternalChoice),
+    InternalChoice(InternalChoice),
+    Prefix(Prefix),
+    SequentialComposition(SequentialComposition),
+    Skip(Skip),
+    Stop(Stop),
+}
+
+impl<ExternalChoice, InternalChoice, Prefix, SequentialComposition, Skip, Stop> IntoIterator
+    for CSPSigAlphabet<ExternalChoice, InternalChoice, Prefix, SequentialComposition, Skip, Stop>
+where
+    ExternalChoice: IntoIterator,
+    InternalChoice: IntoIterator<Item = ExternalChoice::Item>,
+    Prefix: IntoIterator<Item = ExternalChoice::Item>,
+    SequentialComposition: IntoIterator<Item = ExternalChoice::Item>,
+    Skip: IntoIterator<Item = ExternalChoice::Item>,
+    Stop: IntoIterator<Item = ExternalChoice::Item>,
+{
+    type Item = ExternalChoice::Item;
+    type IntoIter = CSPSigAlphabetIterator<
+        ExternalChoice::IntoIter,
+        InternalChoice::IntoIter,
+        Prefix::IntoIter,
+        SequentialComposition::IntoIter,
+        Skip::IntoIter,
+        Stop::IntoIter,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            CSPSigAlphabet::ExternalChoice(this) => {
+                CSPSigAlphabetIterator::ExternalChoice(this.into_iter())
+            }
+            CSPSigAlphabet::InternalChoice(this) => {
+                CSPSigAlphabetIterator::InternalChoice(this.into_iter())
+            }
+            CSPSigAlphabet::Prefix(this) => CSPSigAlphabetIterator::Prefix(this.into_iter()),
+            CSPSigAlphabet::SequentialComposition(this) => {
+                CSPSigAlphabetIterator::SequentialComposition(this.into_iter())
+            }
+            CSPSigAlphabet::Skip(this) => CSPSigAlphabetIterator::Skip(this.into_iter()),
+            CSPSigAlphabet::Stop(this) => CSPSigAlphabetIterator::Stop(this.into_iter()),
         }
     }
 }

@@ -17,6 +17,7 @@
 
 use std::collections::HashSet;
 use std::hash::Hash;
+use std::marker::PhantomData;
 
 /// An alphabet is a set of events.
 ///
@@ -24,6 +25,9 @@ use std::hash::Hash;
 /// rules out using something simple like `HashSet` to store them.  For example, you might instead
 /// want to define an alphabet of events using a predicate — a function that takes in an event and
 /// evaluates to `true` if the event is in the set.
+///
+/// Of course, if you _can_ easily enumerate all of the events in your alphabet type, that's great!
+/// Just implement `IntoIterator<Item = E>` as well.
 pub trait Alphabet<E> {
     /// Returns whether this alphabet contains a particular event.
     fn contains(&self, event: &E) -> bool;
@@ -31,11 +35,26 @@ pub trait Alphabet<E> {
 
 /// An alphabet that contains no events.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct EmptyAlphabet;
+pub struct EmptyAlphabet<E>(PhantomData<E>);
 
-impl<E> Alphabet<E> for EmptyAlphabet {
+impl<E> EmptyAlphabet<E> {
+    pub fn new() -> EmptyAlphabet<E> {
+        EmptyAlphabet(PhantomData)
+    }
+}
+
+impl<E> Alphabet<E> for EmptyAlphabet<E> {
     fn contains(&self, _event: &E) -> bool {
         false
+    }
+}
+
+impl<E> IntoIterator for EmptyAlphabet<E> {
+    type Item = E;
+    type IntoIter = std::iter::Empty<E>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        std::iter::empty()
     }
 }
 

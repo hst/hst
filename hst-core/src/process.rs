@@ -86,9 +86,10 @@ pub trait Cursor<E> {
 pub fn initials<C, E>(cursor: &C) -> HashSet<E>
 where
     C: Cursor<E>,
+    C::Alphabet: IntoIterator<Item = E>,
     E: Eq + From<Tau> + Hash,
 {
-    cursor.events().collect()
+    cursor.initials().into_iter().collect()
 }
 
 /// Returns whether a process satisfies a trace.
@@ -240,6 +241,7 @@ where
 pub fn maximal_finite_traces<C, E>(cursor: C) -> MaximalTraces<E>
 where
     C: Clone + Eq + Cursor<E>,
+    C::Alphabet: IntoIterator<Item = E>,
     E: Clone + Eq + From<Tau> + Hash,
 {
     fn subprocess<C, E>(
@@ -249,6 +251,7 @@ where
         current_trace: &mut Vec<E>,
     ) where
         C: Clone + Eq + Cursor<E>,
+        C::Alphabet: IntoIterator<Item = E>,
         E: Clone + Eq + From<Tau> + Hash,
     {
         // If `cursor` already appears earlier in the current trace, then we've found a cycle.
@@ -259,7 +262,7 @@ where
 
         // If the current subprocess doesn't have any outgoing transitions, we've found the end of
         // a finite trace.
-        let initials = cursor.events().collect::<HashSet<_>>();
+        let initials = cursor.initials().into_iter().collect::<HashSet<_>>();
         if initials.is_empty() {
             result.insert(current_trace.clone());
             return;

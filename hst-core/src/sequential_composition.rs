@@ -254,6 +254,45 @@ where
     }
 }
 
+fn translate_tick<E>(event: E) -> E
+where
+    E: Eq + From<Tau> + From<Tick>,
+{
+    if event == tick() {
+        tau()
+    } else {
+        event
+    }
+}
+
+impl<A> IntoIterator for SequentialCompositionAlphabet<A>
+where
+    A: IntoIterator,
+    A::Item: Eq + From<Tau> + From<Tick>,
+{
+    type Item = A::Item;
+    type IntoIter = std::iter::Chain<
+        std::iter::Map<
+            std::iter::FlatMap<std::option::IntoIter<A>, A::IntoIter, fn(A) -> A::IntoIter>,
+            fn(A::Item) -> A::Item,
+        >,
+        std::iter::FlatMap<std::vec::IntoIter<A>, A::IntoIter, fn(A) -> A::IntoIter>,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let p = self
+            .p
+            .into_iter()
+            .flat_map(A::into_iter as fn(A) -> A::IntoIter)
+            .map(translate_tick as fn(A::Item) -> A::Item);
+        let qs = self
+            .qs
+            .into_iter()
+            .flat_map(A::into_iter as fn(A) -> A::IntoIter);
+        p.chain(qs)
+    }
+}
+
 #[cfg(test)]
 mod sequential_composition_tests {
     use super::*;

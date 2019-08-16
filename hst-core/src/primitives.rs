@@ -19,6 +19,8 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
+use auto_enums::enum_derive;
+
 use crate::event::Alphabet;
 use crate::event::EmptyAlphabet;
 use crate::process::Cursor;
@@ -123,10 +125,10 @@ impl<E> Cursor<E> for StopCursor<E>
 where
     E: Display + 'static,
 {
-    type Alphabet = EmptyAlphabet;
+    type Alphabet = EmptyAlphabet<E>;
 
-    fn initials(&self) -> EmptyAlphabet {
-        EmptyAlphabet
+    fn initials(&self) -> EmptyAlphabet<E> {
+        EmptyAlphabet::new()
     }
 
     fn events(&self) -> Box<dyn Iterator<Item = E>> {
@@ -154,7 +156,7 @@ mod stop_tests {
 
     #[proptest]
     fn check_stop_initials(event: TestEvent) {
-        let process: Stop<Tau> = dbg!(stop());
+        let process: Stop<TestEvent> = dbg!(stop());
         let alphabet = process.root().initials();
         assert!(!alphabet.contains(&event));
     }
@@ -207,8 +209,8 @@ pub enum SkipState {
 
 #[doc(hidden)]
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum SkipAlphabet {
-    BeforeTick,
+pub enum SkipAlphabet<E> {
+    BeforeTick(PhantomData<E>),
     AfterTick,
 }
 
@@ -236,11 +238,11 @@ impl<E> Cursor<E> for SkipCursor<E>
 where
     E: Display + Eq + From<Tick> + 'static,
 {
-    type Alphabet = SkipAlphabet;
+    type Alphabet = SkipAlphabet<E>;
 
-    fn initials(&self) -> SkipAlphabet {
+    fn initials(&self) -> SkipAlphabet<E> {
         match self.state {
-            SkipState::BeforeTick => SkipAlphabet::BeforeTick,
+            SkipState::BeforeTick => SkipAlphabet::BeforeTick(PhantomData),
             SkipState::AfterTick => SkipAlphabet::AfterTick,
         }
     }
@@ -270,14 +272,38 @@ where
     }
 }
 
-impl<E> Alphabet<E> for SkipAlphabet
+impl<E> Alphabet<E> for SkipAlphabet<E>
 where
     E: Eq + From<Tick>,
 {
     fn contains(&self, event: &E) -> bool {
         match self {
-            SkipAlphabet::BeforeTick => *event == tick(),
+            SkipAlphabet::BeforeTick(_) => *event == tick(),
             SkipAlphabet::AfterTick => false,
+        }
+    }
+}
+
+#[doc(hidden)]
+#[enum_derive(Iterator)]
+pub enum SkipAlphabetIterator<E> {
+    BeforeTick(std::iter::Once<E>),
+    AfterTick(std::iter::Empty<E>),
+}
+
+impl<E> IntoIterator for SkipAlphabet<E>
+where
+    E: From<Tick>,
+{
+    type Item = E;
+    type IntoIter = SkipAlphabetIterator<E>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            SkipAlphabet::BeforeTick(_) => {
+                SkipAlphabetIterator::BeforeTick(std::iter::once(tick()))
+            }
+            SkipAlphabet::AfterTick => SkipAlphabetIterator::AfterTick(std::iter::empty()),
         }
     }
 }

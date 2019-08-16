@@ -19,6 +19,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
+use auto_enums::enum_derive;
 use smallbitvec::SmallBitVec;
 use smallvec::smallvec;
 use smallvec::SmallVec;
@@ -101,8 +102,8 @@ pub enum InternalChoiceState {
 
 #[doc(hidden)]
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum InternalChoiceAlphabet<A> {
-    BeforeTau,
+pub enum InternalChoiceAlphabet<E, A> {
+    BeforeTau(PhantomData<E>),
     AfterTau(SmallVec<[A; 2]>),
 }
 
@@ -164,11 +165,11 @@ where
     E: Display + Eq + From<Tau>,
     C: Cursor<E>,
 {
-    type Alphabet = InternalChoiceAlphabet<C::Alphabet>;
+    type Alphabet = InternalChoiceAlphabet<E, C::Alphabet>;
 
-    fn initials(&self) -> InternalChoiceAlphabet<C::Alphabet> {
+    fn initials(&self) -> InternalChoiceAlphabet<E, C::Alphabet> {
         match self.state {
-            InternalChoiceState::BeforeTau => InternalChoiceAlphabet::BeforeTau,
+            InternalChoiceState::BeforeTau => InternalChoiceAlphabet::BeforeTau(PhantomData),
             InternalChoiceState::AfterTau => InternalChoiceAlphabet::AfterTau(
                 self.activated_subcursors().map(C::initials).collect(),
             ),
@@ -221,16 +222,48 @@ where
     }
 }
 
-impl<E, A> Alphabet<E> for InternalChoiceAlphabet<A>
+impl<E, A> Alphabet<E> for InternalChoiceAlphabet<E, A>
 where
     E: Eq + From<Tau>,
     A: Alphabet<E>,
 {
     fn contains(&self, event: &E) -> bool {
         match self {
-            InternalChoiceAlphabet::BeforeTau => *event == tau(),
+            InternalChoiceAlphabet::BeforeTau(_) => *event == tau(),
             InternalChoiceAlphabet::AfterTau(alphabets) => {
                 alphabets.iter().any(|alphabet| alphabet.contains(event))
+            }
+        }
+    }
+}
+
+#[doc(hidden)]
+#[enum_derive(Iterator)]
+pub enum InternalChoiceAlphabetIterator<E, A>
+where
+    A: IntoIterator<Item = E>,
+{
+    BeforeTau(std::iter::Once<E>),
+    AfterTau(std::iter::FlatMap<smallvec::IntoIter<[A; 2]>, A::IntoIter, fn(A) -> A::IntoIter>),
+}
+
+impl<E, A> IntoIterator for InternalChoiceAlphabet<E, A>
+where
+    E: From<Tau>,
+    A: IntoIterator<Item = E>,
+{
+    type Item = E;
+    type IntoIter = InternalChoiceAlphabetIterator<E, A>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            InternalChoiceAlphabet::BeforeTau(_) => {
+                InternalChoiceAlphabetIterator::BeforeTau(std::iter::once(tau()))
+            }
+            InternalChoiceAlphabet::AfterTau(alphabets) => {
+                InternalChoiceAlphabetIterator::AfterTau(
+                    alphabets.into_iter().flat_map(A::into_iter),
+                )
             }
         }
     }

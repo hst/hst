@@ -18,6 +18,8 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use auto_enums::enum_derive;
+
 use crate::event::Alphabet;
 use crate::process::Cursor;
 use crate::process::Process;
@@ -136,6 +138,33 @@ where
         match self {
             PrefixAlphabet::BeforeInitial(initial) => initial == event,
             PrefixAlphabet::AfterInitial(alphabet) => alphabet.contains(event),
+        }
+    }
+}
+
+#[doc(hidden)]
+#[enum_derive(Iterator)]
+pub enum PrefixAlphabetIterator<E, A> {
+    BeforeInitial(std::iter::Once<E>),
+    AfterInitial(A),
+}
+
+impl<E, A> IntoIterator for PrefixAlphabet<E, A>
+where
+    E: Clone,
+    A: IntoIterator<Item = E>,
+{
+    type Item = E;
+    type IntoIter = PrefixAlphabetIterator<E, A::IntoIter>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            PrefixAlphabet::BeforeInitial(initial) => {
+                PrefixAlphabetIterator::BeforeInitial(std::iter::once(initial.clone()))
+            }
+            PrefixAlphabet::AfterInitial(alphabet) => {
+                PrefixAlphabetIterator::AfterInitial(alphabet.into_iter())
+            }
         }
     }
 }

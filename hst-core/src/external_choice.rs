@@ -372,6 +372,19 @@ where
     }
 }
 
+impl<A> IntoIterator for ExternalChoiceAlphabet<A>
+where
+    A: IntoIterator,
+{
+    type Item = A::Item;
+    type IntoIter =
+        std::iter::FlatMap<smallvec::IntoIter<[A; 2]>, A::IntoIter, fn(A) -> A::IntoIter>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter().flat_map(A::into_iter)
+    }
+}
+
 #[cfg(test)]
 mod external_choice_tests {
     use super::*;
