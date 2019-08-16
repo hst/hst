@@ -132,28 +132,6 @@ where
     E: Eq + From<Tau> + From<Tick>,
     C: Clone + Cursor<E>,
 {
-    fn p_events(&self) -> impl Iterator<Item = E> + '_ {
-        self.p
-            .iter()
-            .flat_map(Cursor::events)
-            .map(|e| if e == tick() { tau() } else { e })
-    }
-
-    fn p_can_perform(&self, event: &E) -> bool {
-        let p = match &self.p {
-            Some(p) => p,
-            None => return false,
-        };
-
-        if *event == tick() {
-            false
-        } else if *event == tau() {
-            p.can_perform(event) || p.can_perform(&tick())
-        } else {
-            p.can_perform(event)
-        }
-    }
-
     fn p_perform(&mut self, event: &E) {
         let p = match &mut self.p {
             Some(p) => p,
@@ -181,14 +159,6 @@ where
         }
     }
 
-    fn q_events(&self) -> impl Iterator<Item = E> + '_ {
-        self.qs.iter().flatten().flat_map(C::events)
-    }
-
-    fn q_can_perform(&self, event: &E) -> bool {
-        self.qs.iter().flatten().any(|q| q.can_perform(event))
-    }
-
     fn q_perform(&mut self, event: &E) {
         for q in &mut self.qs {
             match q {
@@ -214,14 +184,6 @@ where
             p: self.p.as_ref().map(C::initials),
             qs: self.qs.iter().flatten().map(C::initials).collect(),
         }
-    }
-
-    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
-        Box::new(self.p_events().chain(self.q_events()))
-    }
-
-    fn can_perform(&self, event: &E) -> bool {
-        self.p_can_perform(event) || self.q_can_perform(event)
     }
 
     fn perform(&mut self, event: &E) {

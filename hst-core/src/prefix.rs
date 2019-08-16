@@ -103,20 +103,6 @@ where
         }
     }
 
-    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
-        match self.state {
-            PrefixState::BeforeInitial => Box::new(std::iter::once(self.initial.clone())),
-            PrefixState::AfterInitial => self.after.events(),
-        }
-    }
-
-    fn can_perform(&self, event: &E) -> bool {
-        match self.state {
-            PrefixState::BeforeInitial => *event == self.initial,
-            PrefixState::AfterInitial => self.after.can_perform(event),
-        }
-    }
-
     fn perform(&mut self, event: &E) {
         if self.state == PrefixState::AfterInitial {
             self.after.perform(event);

@@ -131,14 +131,6 @@ where
         EmptyAlphabet::new()
     }
 
-    fn events(&self) -> Box<dyn Iterator<Item = E>> {
-        Box::new(std::iter::empty())
-    }
-
-    fn can_perform(&self, _event: &E) -> bool {
-        false
-    }
-
     fn perform(&mut self, event: &E) {
         panic!("Stop cannot perform {}", event);
     }
@@ -244,20 +236,6 @@ where
         match self.state {
             SkipState::BeforeTick => SkipAlphabet::BeforeTick(PhantomData),
             SkipState::AfterTick => SkipAlphabet::AfterTick,
-        }
-    }
-
-    fn events(&self) -> Box<dyn Iterator<Item = E>> {
-        match self.state {
-            SkipState::BeforeTick => Box::new(std::iter::once(tick())),
-            SkipState::AfterTick => Box::new(std::iter::empty()),
-        }
-    }
-
-    fn can_perform(&self, event: &E) -> bool {
-        match self.state {
-            SkipState::BeforeTick => *event == tick(),
-            SkipState::AfterTick => false,
         }
     }
 

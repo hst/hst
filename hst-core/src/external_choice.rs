@@ -325,28 +325,6 @@ where
         )
     }
 
-    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
-        // Regardless of whether the choice has been resolved yet, we're able to perform any
-        // event allowed by any of the still-eligible possible subprocesses.
-        Box::new(
-            self.subcursors
-                .iter()
-                // One flatten merges the Vecs, the other takes care of the Options.
-                .flatten()
-                .flatten()
-                .flat_map(C::events),
-        )
-    }
-
-    fn can_perform(&self, event: &E) -> bool {
-        self.subcursors
-            .iter()
-            // One flatten merges the Vecs, the other takes care of the Options.
-            .flatten()
-            .flatten()
-            .any(|subcursor| subcursor.can_perform(event))
-    }
-
     fn perform(&mut self, event: &E) {
         match self.state {
             ExternalChoiceState::Unresolved => {

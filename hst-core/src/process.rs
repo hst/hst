@@ -49,21 +49,10 @@ pub trait Cursor<E> {
     /// Returns the set of events that the process is willing to perform in its current state.
     fn initials(&self) -> Self::Alphabet;
 
-    /// Returns the set of events that the process is willing to perform in its current state.
-    ///
-    /// (The result represents a _set_ of events, but to make it easier to implement this method,
-    /// the result is allowed to contain the same event multiple times.  If you need to have an
-    /// actual set, with events appearing once, it's your responsibility to dedup them.)
-    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a>;
-
     /// Returns whether the process is willing to perform a particular event in its current state.
-    ///
-    /// This is equivalent to the following, but can be more efficient for some process types:
-    ///
-    /// ``` ignore
-    /// self.events().any(|e| *e == event)
-    /// ```
-    fn can_perform(&self, event: &E) -> bool;
+    fn can_perform(&self, event: &E) -> bool {
+        self.initials().contains(event)
+    }
 
     /// Updates the current state of the cursor to describe what the process would do after
     /// performing a particular event.  Panics if the process is not willing to perform `event` in
@@ -80,16 +69,6 @@ pub trait Cursor<E> {
         after.perform(event);
         after
     }
-}
-
-/// Returns the initial events of a process.  This includes invisible events like τ.
-pub fn initials<C, E>(cursor: &C) -> HashSet<E>
-where
-    C: Cursor<E>,
-    C::Alphabet: IntoIterator<Item = E>,
-    E: Eq + From<Tau> + Hash,
-{
-    cursor.initials().into_iter().collect()
 }
 
 /// Returns whether a process satisfies a trace.

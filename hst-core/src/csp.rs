@@ -111,14 +111,6 @@ where
         CSPAlphabet(Box::new(self.0.initials()))
     }
 
-    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
-        self.0.events()
-    }
-
-    fn can_perform(&self, event: &E) -> bool {
-        self.0.can_perform(event)
-    }
-
     fn perform(&mut self, event: &E) {
         self.0.perform(event);
     }
@@ -273,28 +265,6 @@ where
             }
             CSPSigCursor::Skip(this) => CSPSigAlphabet::Skip(this.initials()),
             CSPSigCursor::Stop(this) => CSPSigAlphabet::Stop(this.initials()),
-        }
-    }
-
-    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
-        match self {
-            CSPSigCursor::ExternalChoice(this) => this.events(),
-            CSPSigCursor::InternalChoice(this) => this.events(),
-            CSPSigCursor::Prefix(this) => this.events(),
-            CSPSigCursor::SequentialComposition(this) => this.events(),
-            CSPSigCursor::Skip(this) => this.events(),
-            CSPSigCursor::Stop(this) => this.events(),
-        }
-    }
-
-    fn can_perform(&self, event: &E) -> bool {
-        match self {
-            CSPSigCursor::ExternalChoice(this) => this.can_perform(event),
-            CSPSigCursor::InternalChoice(this) => this.can_perform(event),
-            CSPSigCursor::Prefix(this) => this.can_perform(event),
-            CSPSigCursor::SequentialComposition(this) => this.can_perform(event),
-            CSPSigCursor::Skip(this) => this.can_perform(event),
-            CSPSigCursor::Stop(this) => this.can_perform(event),
         }
     }
 

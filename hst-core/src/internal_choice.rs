@@ -176,27 +176,6 @@ where
         }
     }
 
-    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
-        match self.state {
-            InternalChoiceState::BeforeTau => Box::new(std::iter::once(tau())),
-            InternalChoiceState::AfterTau => Box::new(
-                // Smoosh together all of the possible initial events from any of our subprocesses.
-                // (We don't have to worry about de-duping them; the caller gets to worry about
-                // that.)
-                self.activated_subcursors().flat_map(C::events),
-            ),
-        }
-    }
-
-    fn can_perform(&self, event: &E) -> bool {
-        match self.state {
-            InternalChoiceState::BeforeTau => *event == tau(),
-            InternalChoiceState::AfterTau => self
-                .activated_subcursors()
-                .any(|subcursor| subcursor.can_perform(event)),
-        }
-    }
-
     fn perform(&mut self, event: &E) {
         if self.state == InternalChoiceState::AfterTau {
             for (idx, subcursor) in self.subcursors.iter_mut().enumerate() {
