@@ -19,7 +19,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
-use crate::event::EmptyAlphabet;
+use crate::event::Alphabet;
 use crate::primitives::tau;
 use crate::primitives::tick;
 use crate::primitives::Tau;
@@ -75,6 +75,13 @@ pub struct SequentialCompositionCursor<E, C> {
     /// starting points.  The Option lets us "deactivate" one of those states if we retroactively
     /// discover that it wasn't possible, by not being able to perform some later visible event.
     qs: Vec<Option<C>>,
+}
+
+#[doc(hidden)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct SequentialCompositionAlphabet<A> {
+    p: Option<A>,
+    qs: Vec<A>,
 }
 
 struct Subcursors<'a, C>(&'a Vec<Option<C>>);
@@ -200,10 +207,13 @@ where
     E: Eq + From<Tau> + From<Tick>,
     C: Clone + Cursor<E>,
 {
-    type Alphabet = EmptyAlphabet;
+    type Alphabet = SequentialCompositionAlphabet<C::Alphabet>;
 
-    fn initials(&self) -> EmptyAlphabet {
-        EmptyAlphabet
+    fn initials(&self) -> SequentialCompositionAlphabet<C::Alphabet> {
+        SequentialCompositionAlphabet {
+            p: self.p.as_ref().map(C::initials),
+            qs: self.qs.iter().flatten().map(C::initials).collect(),
+        }
     }
 
     fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
@@ -220,6 +230,30 @@ where
     }
 }
 
+impl<E, A> Alphabet<E> for SequentialCompositionAlphabet<A>
+where
+    E: Eq + From<Tau> + From<Tick>,
+    A: Alphabet<E>,
+{
+    fn contains(&self, event: &E) -> bool {
+        let p_contains = self
+            .p
+            .as_ref()
+            .map(|p| {
+                if *event == tick() {
+                    false
+                } else if *event == tau() {
+                    p.contains(event) || p.contains(&tick())
+                } else {
+                    p.contains(event)
+                }
+            })
+            .unwrap_or(false);
+        let q_contains = self.qs.iter().any(|q| q.contains(event));
+        p_contains || q_contains
+    }
+}
+
 #[cfg(test)]
 mod sequential_composition_tests {
     use super::*;
@@ -228,21 +262,34 @@ mod sequential_composition_tests {
 
     use crate::csp::CSP;
     use crate::primitives::tick;
-    use crate::process::initials;
     use crate::process::maximal_finite_traces;
     use crate::process::MaximalTraces;
     use crate::test_support::TestEvent;
 
     #[proptest]
-    fn check_sequential_composition(p: CSP<TestEvent>, q: CSP<TestEvent>) {
+    fn check_sequential_composition_initials(
+        event: TestEvent,
+        p: CSP<TestEvent>,
+        q: CSP<TestEvent>,
+    ) {
         let process = dbg!(sequential_composition(p.clone(), q.clone()));
+        let alphabet = dbg!(process.root().initials());
+        assert!(!alphabet.contains(&tick()));
+        assert_eq!(
+            alphabet.contains(&event),
+            if event == tick() {
+                false
+            } else if event == tau() {
+                p.root().initials().contains(&tau()) || p.root().initials().contains(&tick())
+            } else {
+                p.root().initials().contains(&event)
+            }
+        );
+    }
 
-        // We need to replace ✔ with τ in the initials of P.
-        let mut expected = initials(&p.root());
-        if expected.remove(&tick()) {
-            expected.insert(tau());
-        }
-        assert_eq!(initials(&process.root()), expected);
+    #[proptest]
+    fn check_sequential_composition_traces(p: CSP<TestEvent>, q: CSP<TestEvent>) {
+        let process = dbg!(sequential_composition(p.clone(), q.clone()));
 
         // For any trace of P, we need to replace a ✔ at the end with all possible traces of Q.
         let mut expected = MaximalTraces::new();
