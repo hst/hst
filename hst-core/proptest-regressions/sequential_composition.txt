@@ -8,3 +8,4 @@ cc b8f820937ddbf8aaa47a462b77b0d8746afa24f434206f9147c532de68ab67cf # shrinks to
 cc 69d41a87547da3aeeacea53c269d0bd1503a788ce20d41f1bdee5e27298b5389 # shrinks to p = Skip, q = Stop
 cc dd8008f4f08acef2d287ebd9ebc223b29ad5c0445327d505aa96439e481ed847 # shrinks to p = □ {⊓ {Stop, Stop, E₀ → Skip}, Stop, Skip}, q = Skip
 cc c2072f990d653ebac3033c14a765fbf68c74abd655a8a9e11d8b4fd220f71044 # shrinks to event = τ, p = Stop □ Skip, q = Stop
+cc 6e163df1a9056da31791b71e120ac01fba428b7879d7411ae1b13df0c7fc50f5 # shrinks to p = □ {Stop ⊓ Stop, Skip, Stop}, q = Skip □ Stop

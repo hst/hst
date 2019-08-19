@@ -139,6 +139,10 @@ where
         };
 
         if *event == tick() {
+            // The P side of the composition is never able to perform ✔.  That means we couldn't
+            // have been trying to behave like P at this point, so we should clear the P subprocess
+            // cursor as it's no longer a valid possibility.
+            self.p.take();
             return;
         }
 
