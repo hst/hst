@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 9f8ab66d19a83c501ff7d9dcc62e232fbcd7ca56c9ea1577397b9059c442d036 # shrinks to p = Stop
+cc 54595eb5dda7a4d52c17d2cc80f8631bfc0663a015bc09c6e3a58e1bba7a1629 # shrinks to event = τ, p = Stop

@@ -22,6 +22,7 @@ use std::marker::PhantomData;
 use smallvec::smallvec;
 use smallvec::SmallVec;
 
+use crate::event::Alphabet;
 use crate::primitives::tau;
 use crate::primitives::Tau;
 use crate::process::Cursor;
@@ -102,6 +103,10 @@ pub enum ExternalChoiceState {
     Unresolved,
     Resolved,
 }
+
+#[doc(hidden)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct ExternalChoiceAlphabet<A>(SmallVec<[A; 2]>);
 
 struct Subcursors<'a, C>(&'a Vec<Vec<Option<C>>>);
 struct SubcursorTaus<'a, C>(&'a Vec<Option<C>>);
@@ -306,26 +311,18 @@ where
     E: Display + Eq + From<Tau>,
     C: Clone + Cursor<E>,
 {
-    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
-        // Regardless of whether the choice has been resolved yet, we're able to perform any
-        // event allowed by any of the still-eligible possible subprocesses.
-        Box::new(
+    type Alphabet = ExternalChoiceAlphabet<C::Alphabet>;
+
+    fn initials(&self) -> ExternalChoiceAlphabet<C::Alphabet> {
+        ExternalChoiceAlphabet(
             self.subcursors
                 .iter()
                 // One flatten merges the Vecs, the other takes care of the Options.
                 .flatten()
                 .flatten()
-                .flat_map(C::events),
+                .map(C::initials)
+                .collect(),
         )
-    }
-
-    fn can_perform(&self, event: &E) -> bool {
-        self.subcursors
-            .iter()
-            // One flatten merges the Vecs, the other takes care of the Options.
-            .flatten()
-            .flatten()
-            .any(|subcursor| subcursor.can_perform(event))
     }
 
     fn perform(&mut self, event: &E) {
@@ -344,6 +341,28 @@ where
     }
 }
 
+impl<E, A> Alphabet<E> for ExternalChoiceAlphabet<A>
+where
+    A: Alphabet<E>,
+{
+    fn contains(&self, event: &E) -> bool {
+        self.0.iter().any(|alphabet| alphabet.contains(event))
+    }
+}
+
+impl<A> IntoIterator for ExternalChoiceAlphabet<A>
+where
+    A: IntoIterator,
+{
+    type Item = A::Item;
+    type IntoIter =
+        std::iter::FlatMap<smallvec::IntoIter<[A; 2]>, A::IntoIter, fn(A) -> A::IntoIter>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter().flat_map(A::into_iter)
+    }
+}
+
 #[cfg(test)]
 mod external_choice_tests {
     use super::*;
@@ -352,22 +371,37 @@ mod external_choice_tests {
     use proptest_attr_macro::proptest;
 
     use crate::csp::CSP;
-    use crate::process::initials;
     use crate::process::maximal_finite_traces;
     use crate::process::MaximalTraces;
     use crate::test_support::NonemptyVec;
     use crate::test_support::TestEvent;
 
+    #[proptest]
+    fn check_empty_external_choice_initials(event: TestEvent) {
+        let process: CSP<TestEvent> = dbg!(replicated_external_choice(vec![]));
+        let alphabet = dbg!(process.root().initials());
+        assert!(!alphabet.contains(&event));
+    }
+
     #[test]
-    fn check_empty_external_choice() {
+    fn check_empty_external_choice_traces() {
         let process: CSP<TestEvent> = dbg!(replicated_external_choice(vec![]));
         assert_eq!(maximal_finite_traces(process.root()), hashset! {vec![]});
     }
 
     #[proptest]
-    fn check_singleton_external_choice(p: CSP<TestEvent>) {
+    fn check_singleton_external_choice_initials(event: TestEvent, p: CSP<TestEvent>) {
         let process = dbg!(replicated_external_choice(vec![p.clone()]));
-        assert_eq!(initials(&process.root()), initials(&p.root()));
+        let alphabet = dbg!(process.root().initials());
+        assert_eq!(
+            alphabet.contains(&event),
+            p.root().initials().contains(&event)
+        );
+    }
+
+    #[proptest]
+    fn check_singleton_external_choice_traces(p: CSP<TestEvent>) {
+        let process = dbg!(replicated_external_choice(vec![p.clone()]));
         assert_eq!(
             maximal_finite_traces(process.root()),
             maximal_finite_traces(p.root())
@@ -375,12 +409,22 @@ mod external_choice_tests {
     }
 
     #[proptest]
-    fn check_doubleton_external_choice(p: CSP<TestEvent>, q: CSP<TestEvent>) {
+    fn check_doubleton_external_choice_initials(
+        event: TestEvent,
+        p: CSP<TestEvent>,
+        q: CSP<TestEvent>,
+    ) {
         let process = dbg!(external_choice(p.clone(), q.clone()));
+        let alphabet = dbg!(process.root().initials());
         assert_eq!(
-            initials(&process.root()),
-            &initials(&p.root()) | &initials(&q.root())
+            alphabet.contains(&event),
+            p.root().initials().contains(&event) || q.root().initials().contains(&event)
         );
+    }
+
+    #[proptest]
+    fn check_doubleton_external_choice_traces(p: CSP<TestEvent>, q: CSP<TestEvent>) {
+        let process = dbg!(external_choice(p.clone(), q.clone()));
         assert_eq!(
             maximal_finite_traces(process.root()),
             maximal_finite_traces(p.root()) + maximal_finite_traces(q.root())
@@ -388,16 +432,21 @@ mod external_choice_tests {
     }
 
     #[proptest]
-    fn check_replicated_external_choice(ps: NonemptyVec<CSP<TestEvent>>) {
+    fn check_replicated_external_choice_initials(
+        event: TestEvent,
+        ps: NonemptyVec<CSP<TestEvent>>,
+    ) {
         let process = dbg!(replicated_external_choice(ps.vec.clone()));
+        let alphabet = dbg!(process.root().initials());
         assert_eq!(
-            initials(&process.root()),
-            ps.vec
-                .iter()
-                .map(Process::root)
-                .map(|cursor| initials(&cursor))
-                .fold(hashset! {}, |prev, next| &prev | &next)
+            alphabet.contains(&event),
+            ps.vec.iter().any(|p| p.root().initials().contains(&event))
         );
+    }
+
+    #[proptest]
+    fn check_replicated_external_choice_traces(ps: NonemptyVec<CSP<TestEvent>>) {
+        let process = dbg!(replicated_external_choice(ps.vec.clone()));
         assert_eq!(
             maximal_finite_traces(process.root()),
             ps.vec

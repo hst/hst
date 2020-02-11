@@ -19,6 +19,10 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
+use auto_enums::enum_derive;
+
+use crate::event::Alphabet;
+use crate::event::EmptyAlphabet;
 use crate::process::Cursor;
 use crate::process::Process;
 
@@ -121,12 +125,10 @@ impl<E> Cursor<E> for StopCursor<E>
 where
     E: Display + 'static,
 {
-    fn events(&self) -> Box<dyn Iterator<Item = E>> {
-        Box::new(std::iter::empty())
-    }
+    type Alphabet = EmptyAlphabet<E>;
 
-    fn can_perform(&self, _event: &E) -> bool {
-        false
+    fn initials(&self) -> EmptyAlphabet<E> {
+        EmptyAlphabet::new()
     }
 
     fn perform(&mut self, event: &E) {
@@ -139,14 +141,21 @@ mod stop_tests {
     use super::*;
 
     use maplit::hashset;
+    use proptest_attr_macro::proptest;
 
-    use crate::process::initials;
     use crate::process::maximal_finite_traces;
+    use crate::test_support::TestEvent;
+
+    #[proptest]
+    fn check_stop_initials(event: TestEvent) {
+        let process: Stop<TestEvent> = dbg!(stop());
+        let alphabet = process.root().initials();
+        assert!(!alphabet.contains(&event));
+    }
 
     #[test]
-    fn check_stop() {
+    fn check_stop_traces() {
         let process: Stop<Tau> = dbg!(stop());
-        assert_eq!(initials(&process.root()), hashset! {});
         assert_eq!(maximal_finite_traces(process.root()), hashset! {vec![]});
     }
 }
@@ -190,6 +199,13 @@ pub enum SkipState {
     AfterTick,
 }
 
+#[doc(hidden)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum SkipAlphabet<E> {
+    BeforeTick(PhantomData<E>),
+    AfterTick,
+}
+
 impl<E> Debug for SkipCursor<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "SkipCursor({:?})", self.state)
@@ -214,17 +230,12 @@ impl<E> Cursor<E> for SkipCursor<E>
 where
     E: Display + Eq + From<Tick> + 'static,
 {
-    fn events(&self) -> Box<dyn Iterator<Item = E>> {
-        match self.state {
-            SkipState::BeforeTick => Box::new(std::iter::once(tick())),
-            SkipState::AfterTick => Box::new(std::iter::empty()),
-        }
-    }
+    type Alphabet = SkipAlphabet<E>;
 
-    fn can_perform(&self, event: &E) -> bool {
+    fn initials(&self) -> SkipAlphabet<E> {
         match self.state {
-            SkipState::BeforeTick => *event == tick(),
-            SkipState::AfterTick => false,
+            SkipState::BeforeTick => SkipAlphabet::BeforeTick(PhantomData),
+            SkipState::AfterTick => SkipAlphabet::AfterTick,
         }
     }
 
@@ -239,20 +250,66 @@ where
     }
 }
 
+impl<E> Alphabet<E> for SkipAlphabet<E>
+where
+    E: Eq + From<Tick>,
+{
+    fn contains(&self, event: &E) -> bool {
+        match self {
+            SkipAlphabet::BeforeTick(_) => *event == tick(),
+            SkipAlphabet::AfterTick => false,
+        }
+    }
+}
+
+#[doc(hidden)]
+#[enum_derive(Iterator)]
+pub enum SkipAlphabetIterator<E> {
+    BeforeTick(std::iter::Once<E>),
+    AfterTick(std::iter::Empty<E>),
+}
+
+impl<E> IntoIterator for SkipAlphabet<E>
+where
+    E: From<Tick>,
+{
+    type Item = E;
+    type IntoIter = SkipAlphabetIterator<E>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            SkipAlphabet::BeforeTick(_) => {
+                SkipAlphabetIterator::BeforeTick(std::iter::once(tick()))
+            }
+            SkipAlphabet::AfterTick => SkipAlphabetIterator::AfterTick(std::iter::empty()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod skip_tests {
     use super::*;
 
     use maplit::hashset;
+    use proptest_attr_macro::proptest;
 
-    use crate::process::initials;
     use crate::process::maximal_finite_traces;
     use crate::test_support::TestEvent;
 
-    #[test]
-    fn check_skip() {
+    #[proptest]
+    fn check_skip_initials(event: TestEvent) {
         let process: Skip<TestEvent> = dbg!(skip());
-        assert_eq!(initials(&process.root()), hashset! { tick() });
+
+        let alphabet = process.root().initials();
+        assert_eq!(alphabet.contains(&event), event == tick());
+
+        let alphabet = process.root().after(&tick()).initials();
+        assert!(!alphabet.contains(&event));
+    }
+
+    #[test]
+    fn check_skip_traces() {
+        let process: Skip<TestEvent> = dbg!(skip());
         assert_eq!(
             maximal_finite_traces(process.root()),
             hashset! { vec![tick()] }

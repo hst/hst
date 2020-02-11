@@ -19,10 +19,12 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
+use auto_enums::enum_derive;
 use smallbitvec::SmallBitVec;
 use smallvec::smallvec;
 use smallvec::SmallVec;
 
+use crate::event::Alphabet;
 use crate::primitives::tau;
 use crate::primitives::Tau;
 use crate::process::Cursor;
@@ -98,6 +100,13 @@ pub enum InternalChoiceState {
     AfterTau,
 }
 
+#[doc(hidden)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum InternalChoiceAlphabet<E, A> {
+    BeforeTau(PhantomData<E>),
+    AfterTau(SmallVec<[A; 2]>),
+}
+
 struct ActivatedSubcursors<'a, E, C>(&'a InternalChoiceCursor<E, C>);
 
 impl<E, C> Debug for InternalChoiceCursor<E, C>
@@ -156,24 +165,14 @@ where
     E: Display + Eq + From<Tau>,
     C: Cursor<E>,
 {
-    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
-        match self.state {
-            InternalChoiceState::BeforeTau => Box::new(std::iter::once(tau())),
-            InternalChoiceState::AfterTau => Box::new(
-                // Smoosh together all of the possible initial events from any of our subprocesses.
-                // (We don't have to worry about de-duping them; the caller gets to worry about
-                // that.)
-                self.activated_subcursors().flat_map(C::events),
-            ),
-        }
-    }
+    type Alphabet = InternalChoiceAlphabet<E, C::Alphabet>;
 
-    fn can_perform(&self, event: &E) -> bool {
+    fn initials(&self) -> InternalChoiceAlphabet<E, C::Alphabet> {
         match self.state {
-            InternalChoiceState::BeforeTau => *event == tau(),
-            InternalChoiceState::AfterTau => self
-                .activated_subcursors()
-                .any(|subcursor| subcursor.can_perform(event)),
+            InternalChoiceState::BeforeTau => InternalChoiceAlphabet::BeforeTau(PhantomData),
+            InternalChoiceState::AfterTau => InternalChoiceAlphabet::AfterTau(
+                self.activated_subcursors().map(C::initials).collect(),
+            ),
         }
     }
 
@@ -202,25 +201,83 @@ where
     }
 }
 
+impl<E, A> Alphabet<E> for InternalChoiceAlphabet<E, A>
+where
+    E: Eq + From<Tau>,
+    A: Alphabet<E>,
+{
+    fn contains(&self, event: &E) -> bool {
+        match self {
+            InternalChoiceAlphabet::BeforeTau(_) => *event == tau(),
+            InternalChoiceAlphabet::AfterTau(alphabets) => {
+                alphabets.iter().any(|alphabet| alphabet.contains(event))
+            }
+        }
+    }
+}
+
+#[doc(hidden)]
+#[enum_derive(Iterator)]
+pub enum InternalChoiceAlphabetIterator<E, A>
+where
+    A: IntoIterator<Item = E>,
+{
+    BeforeTau(std::iter::Once<E>),
+    AfterTau(std::iter::FlatMap<smallvec::IntoIter<[A; 2]>, A::IntoIter, fn(A) -> A::IntoIter>),
+}
+
+impl<E, A> IntoIterator for InternalChoiceAlphabet<E, A>
+where
+    E: From<Tau>,
+    A: IntoIterator<Item = E>,
+{
+    type Item = E;
+    type IntoIter = InternalChoiceAlphabetIterator<E, A>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            InternalChoiceAlphabet::BeforeTau(_) => {
+                InternalChoiceAlphabetIterator::BeforeTau(std::iter::once(tau()))
+            }
+            InternalChoiceAlphabet::AfterTau(alphabets) => {
+                InternalChoiceAlphabetIterator::AfterTau(
+                    alphabets.into_iter().flat_map(A::into_iter),
+                )
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod internal_choice_tests {
     use super::*;
 
-    use maplit::hashset;
     use proptest_attr_macro::proptest;
 
     use crate::csp::CSP;
     use crate::primitives::tau;
-    use crate::process::initials;
     use crate::process::maximal_finite_traces;
     use crate::process::MaximalTraces;
     use crate::test_support::NonemptyVec;
     use crate::test_support::TestEvent;
 
     #[proptest]
-    fn check_singleton_internal_choice(p: CSP<TestEvent>) {
+    fn check_singleton_internal_choice_initials(event: TestEvent, p: CSP<TestEvent>) {
         let process = dbg!(replicated_internal_choice(vec![p.clone()]));
-        assert_eq!(initials(&process.root()), hashset! {tau()});
+
+        let alphabet = dbg!(process.root().initials());
+        assert_eq!(alphabet.contains(&event), event == tau());
+
+        let alphabet = process.root().after(&tau()).initials();
+        assert_eq!(
+            alphabet.contains(&event),
+            p.root().initials().contains(&event)
+        );
+    }
+
+    #[proptest]
+    fn check_singleton_internal_choice_traces(p: CSP<TestEvent>) {
+        let process = dbg!(replicated_internal_choice(vec![p.clone()]));
         assert_eq!(
             maximal_finite_traces(process.root()),
             maximal_finite_traces(p.root())
@@ -228,9 +285,26 @@ mod internal_choice_tests {
     }
 
     #[proptest]
-    fn check_doubleton_internal_choice(p: CSP<TestEvent>, q: CSP<TestEvent>) {
+    fn check_doubleton_internal_choice_initials(
+        event: TestEvent,
+        p: CSP<TestEvent>,
+        q: CSP<TestEvent>,
+    ) {
         let process = dbg!(internal_choice(p.clone(), q.clone()));
-        assert_eq!(initials(&process.root()), hashset! {tau()});
+
+        let alphabet = dbg!(process.root().initials());
+        assert_eq!(alphabet.contains(&event), event == tau());
+
+        let alphabet = process.root().after(&tau()).initials();
+        assert_eq!(
+            alphabet.contains(&event),
+            p.root().initials().contains(&event) || q.root().initials().contains(&event)
+        );
+    }
+
+    #[proptest]
+    fn check_doubleton_internal_choice_traces(p: CSP<TestEvent>, q: CSP<TestEvent>) {
+        let process = dbg!(internal_choice(p.clone(), q.clone()));
         assert_eq!(
             maximal_finite_traces(process.root()),
             maximal_finite_traces(p.root()) + maximal_finite_traces(q.root())
@@ -238,9 +312,25 @@ mod internal_choice_tests {
     }
 
     #[proptest]
-    fn check_replicated_internal_choice_transitions(ps: NonemptyVec<CSP<TestEvent>>) {
+    fn check_replicated_internal_choice_initials(
+        event: TestEvent,
+        ps: NonemptyVec<CSP<TestEvent>>,
+    ) {
         let process = dbg!(replicated_internal_choice(ps.vec.clone()));
-        assert_eq!(initials(&process.root()), hashset! {tau()});
+
+        let alphabet = dbg!(process.root().initials());
+        assert_eq!(alphabet.contains(&event), event == tau());
+
+        let alphabet = process.root().after(&tau()).initials();
+        assert_eq!(
+            alphabet.contains(&event),
+            ps.vec.iter().any(|p| p.root().initials().contains(&event))
+        );
+    }
+
+    #[proptest]
+    fn check_replicated_internal_choice_traces(ps: NonemptyVec<CSP<TestEvent>>) {
+        let process = dbg!(replicated_internal_choice(ps.vec.clone()));
         assert_eq!(
             maximal_finite_traces(process.root()),
             ps.vec

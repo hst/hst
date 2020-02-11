@@ -19,6 +19,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
+use crate::event::Alphabet;
 use crate::primitives::tau;
 use crate::primitives::tick;
 use crate::primitives::Tau;
@@ -76,6 +77,13 @@ pub struct SequentialCompositionCursor<E, C> {
     qs: Vec<Option<C>>,
 }
 
+#[doc(hidden)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct SequentialCompositionAlphabet<A> {
+    p: Option<A>,
+    qs: Vec<A>,
+}
+
 struct Subcursors<'a, C>(&'a Vec<Option<C>>);
 
 impl<E, C> Debug for SequentialCompositionCursor<E, C>
@@ -124,28 +132,6 @@ where
     E: Eq + From<Tau> + From<Tick>,
     C: Clone + Cursor<E>,
 {
-    fn p_events(&self) -> impl Iterator<Item = E> + '_ {
-        self.p
-            .iter()
-            .flat_map(Cursor::events)
-            .map(|e| if e == tick() { tau() } else { e })
-    }
-
-    fn p_can_perform(&self, event: &E) -> bool {
-        let p = match &self.p {
-            Some(p) => p,
-            None => return false,
-        };
-
-        if *event == tick() {
-            false
-        } else if *event == tau() {
-            p.can_perform(event) || p.can_perform(&tick())
-        } else {
-            p.can_perform(event)
-        }
-    }
-
     fn p_perform(&mut self, event: &E) {
         let p = match &mut self.p {
             Some(p) => p,
@@ -173,14 +159,6 @@ where
         }
     }
 
-    fn q_events(&self) -> impl Iterator<Item = E> + '_ {
-        self.qs.iter().flatten().flat_map(C::events)
-    }
-
-    fn q_can_perform(&self, event: &E) -> bool {
-        self.qs.iter().flatten().any(|q| q.can_perform(event))
-    }
-
     fn q_perform(&mut self, event: &E) {
         for q in &mut self.qs {
             match q {
@@ -199,17 +177,81 @@ where
     E: Eq + From<Tau> + From<Tick>,
     C: Clone + Cursor<E>,
 {
-    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a> {
-        Box::new(self.p_events().chain(self.q_events()))
-    }
+    type Alphabet = SequentialCompositionAlphabet<C::Alphabet>;
 
-    fn can_perform(&self, event: &E) -> bool {
-        self.p_can_perform(event) || self.q_can_perform(event)
+    fn initials(&self) -> SequentialCompositionAlphabet<C::Alphabet> {
+        SequentialCompositionAlphabet {
+            p: self.p.as_ref().map(C::initials),
+            qs: self.qs.iter().flatten().map(C::initials).collect(),
+        }
     }
 
     fn perform(&mut self, event: &E) {
         self.q_perform(event);
         self.p_perform(event);
+    }
+}
+
+impl<E, A> Alphabet<E> for SequentialCompositionAlphabet<A>
+where
+    E: Eq + From<Tau> + From<Tick>,
+    A: Alphabet<E>,
+{
+    fn contains(&self, event: &E) -> bool {
+        let p_contains = self
+            .p
+            .as_ref()
+            .map(|p| {
+                if *event == tick() {
+                    false
+                } else if *event == tau() {
+                    p.contains(event) || p.contains(&tick())
+                } else {
+                    p.contains(event)
+                }
+            })
+            .unwrap_or(false);
+        let q_contains = self.qs.iter().any(|q| q.contains(event));
+        p_contains || q_contains
+    }
+}
+
+fn translate_tick<E>(event: E) -> E
+where
+    E: Eq + From<Tau> + From<Tick>,
+{
+    if event == tick() {
+        tau()
+    } else {
+        event
+    }
+}
+
+impl<A> IntoIterator for SequentialCompositionAlphabet<A>
+where
+    A: IntoIterator,
+    A::Item: Eq + From<Tau> + From<Tick>,
+{
+    type Item = A::Item;
+    type IntoIter = std::iter::Chain<
+        std::iter::Map<
+            std::iter::FlatMap<std::option::IntoIter<A>, A::IntoIter, fn(A) -> A::IntoIter>,
+            fn(A::Item) -> A::Item,
+        >,
+        std::iter::FlatMap<std::vec::IntoIter<A>, A::IntoIter, fn(A) -> A::IntoIter>,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let p = self
+            .p
+            .into_iter()
+            .flat_map(A::into_iter as fn(A) -> A::IntoIter)
+            .map(translate_tick as fn(A::Item) -> A::Item);
+        let qs = self
+            .qs
+            .into_iter()
+            .flat_map(A::into_iter as fn(A) -> A::IntoIter);
+        p.chain(qs)
     }
 }
 
@@ -221,21 +263,34 @@ mod sequential_composition_tests {
 
     use crate::csp::CSP;
     use crate::primitives::tick;
-    use crate::process::initials;
     use crate::process::maximal_finite_traces;
     use crate::process::MaximalTraces;
     use crate::test_support::TestEvent;
 
     #[proptest]
-    fn check_sequential_composition(p: CSP<TestEvent>, q: CSP<TestEvent>) {
+    fn check_sequential_composition_initials(
+        event: TestEvent,
+        p: CSP<TestEvent>,
+        q: CSP<TestEvent>,
+    ) {
         let process = dbg!(sequential_composition(p.clone(), q.clone()));
+        let alphabet = dbg!(process.root().initials());
+        assert!(!alphabet.contains(&tick()));
+        assert_eq!(
+            alphabet.contains(&event),
+            if event == tick() {
+                false
+            } else if event == tau() {
+                p.root().initials().contains(&tau()) || p.root().initials().contains(&tick())
+            } else {
+                p.root().initials().contains(&event)
+            }
+        );
+    }
 
-        // We need to replace ✔ with τ in the initials of P.
-        let mut expected = initials(&p.root());
-        if expected.remove(&tick()) {
-            expected.insert(tau());
-        }
-        assert_eq!(initials(&process.root()), expected);
+    #[proptest]
+    fn check_sequential_composition_traces(p: CSP<TestEvent>, q: CSP<TestEvent>) {
+        let process = dbg!(sequential_composition(p.clone(), q.clone()));
 
         // For any trace of P, we need to replace a ✔ at the end with all possible traces of Q.
         let mut expected = MaximalTraces::new();

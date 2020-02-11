@@ -24,6 +24,7 @@ use std::ops::Add;
 
 use maplit::hashset;
 
+use crate::event::Alphabet;
 use crate::primitives::tau;
 use crate::primitives::Tau;
 
@@ -41,35 +42,33 @@ pub trait Process<E> {
 /// Tracks the current state of a CSP process, which defines which events it's willing to perform
 /// now.
 pub trait Cursor<E> {
+    /// The type that describes the set of events that the process is willing to perform in its
+    /// current state.
+    type Alphabet: Alphabet<E>;
+
     /// Returns the set of events that the process is willing to perform in its current state.
-    ///
-    /// (The result represents a _set_ of events, but to make it easier to implement this method,
-    /// the result is allowed to contain the same event multiple times.  If you need to have an
-    /// actual set, with events appearing once, it's your responsibility to dedup them.)
-    fn events<'a>(&'a self) -> Box<dyn Iterator<Item = E> + 'a>;
+    fn initials(&self) -> Self::Alphabet;
 
     /// Returns whether the process is willing to perform a particular event in its current state.
-    ///
-    /// This is equivalent to the following, but can be more efficient for some process types:
-    ///
-    /// ``` ignore
-    /// self.events().any(|e| *e == event)
-    /// ```
-    fn can_perform(&self, event: &E) -> bool;
+    fn can_perform(&self, event: &E) -> bool {
+        self.initials().contains(event)
+    }
 
     /// Updates the current state of the cursor to describe what the process would do after
     /// performing a particular event.  Panics if the process is not willing to perform `event` in
     /// its current state.
     fn perform(&mut self, event: &E);
-}
 
-/// Returns the initial events of a process.  This includes invisible events like τ.
-pub fn initials<C, E>(cursor: &C) -> HashSet<E>
-where
-    C: Cursor<E>,
-    E: Eq + From<Tau> + Hash,
-{
-    cursor.events().collect()
+    /// Returns a new cursor representing the process's state after performing a particular event.
+    /// Panics if the process is not willing to perform `event` in its current state.
+    fn after(&self, event: &E) -> Self
+    where
+        Self: Clone,
+    {
+        let mut after = self.clone();
+        after.perform(event);
+        after
+    }
 }
 
 /// Returns whether a process satisfies a trace.
@@ -221,6 +220,7 @@ where
 pub fn maximal_finite_traces<C, E>(cursor: C) -> MaximalTraces<E>
 where
     C: Clone + Eq + Cursor<E>,
+    C::Alphabet: IntoIterator<Item = E>,
     E: Clone + Eq + From<Tau> + Hash,
 {
     fn subprocess<C, E>(
@@ -230,6 +230,7 @@ where
         current_trace: &mut Vec<E>,
     ) where
         C: Clone + Eq + Cursor<E>,
+        C::Alphabet: IntoIterator<Item = E>,
         E: Clone + Eq + From<Tau> + Hash,
     {
         // If `cursor` already appears earlier in the current trace, then we've found a cycle.
@@ -240,7 +241,7 @@ where
 
         // If the current subprocess doesn't have any outgoing transitions, we've found the end of
         // a finite trace.
-        let initials = cursor.events().collect::<HashSet<_>>();
+        let initials = cursor.initials().into_iter().collect::<HashSet<_>>();
         if initials.is_empty() {
             result.insert(current_trace.clone());
             return;
