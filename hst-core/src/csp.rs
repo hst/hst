@@ -438,5 +438,4 @@ mod proptest_support {
                 .boxed()
         }
     }
-
 }

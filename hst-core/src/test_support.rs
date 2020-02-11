@@ -42,9 +42,7 @@ impl From<u32> for NumberedEvent {
     }
 }
 
-const SUBSCRIPT_DIGITS: [char; 10] = [
-    '₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉',
-];
+const SUBSCRIPT_DIGITS: [char; 10] = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉'];
 
 impl Display for NumberedEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -77,10 +75,7 @@ impl Arbitrary for NumberedEvent {
 fn can_display_events() {
     assert_eq!(NumberedEvent(0).to_string(), "E₀");
     assert_eq!(NumberedEvent(10).to_string(), "E₁₀");
-    assert_eq!(
-        NumberedEvent(0123456789).to_string(),
-        "E₁₂₃₄₅₆₇₈₉"
-    );
+    assert_eq!(NumberedEvent(0123456789).to_string(), "E₁₂₃₄₅₆₇₈₉");
 }
 
 /// An event type that is useful in test cases.  It can be a NumberedEvent or any of the
