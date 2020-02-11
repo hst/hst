@@ -13,14 +13,32 @@
 // limitations under the License.
 // ------------------------------------------------------------------------------------------------
 
-pub mod csp;
-pub mod event;
-pub mod external_choice;
-pub mod internal_choice;
-pub mod prefix;
-pub mod primitives;
-pub mod process;
-pub mod sequential_composition;
+mod csp;
+mod event;
+mod external_choice;
+mod internal_choice;
+mod prefix;
+mod primitives;
+mod process;
+mod sequential_composition;
+
+pub use csp::CSP;
+pub use event::Alphabet;
+pub use event::EmptyAlphabet;
+pub use external_choice::external_choice;
+pub use external_choice::replicated_external_choice;
+pub use internal_choice::internal_choice;
+pub use internal_choice::replicated_internal_choice;
+pub use prefix::prefix;
+pub use primitives::skip;
+pub use primitives::stop;
+pub use primitives::tau;
+pub use primitives::tick;
+pub use process::maximal_finite_traces;
+pub use process::satisfies_trace;
+pub use process::Cursor;
+pub use process::Process;
+pub use sequential_composition::sequential_composition;
 
 #[cfg(test)]
 mod test_support;

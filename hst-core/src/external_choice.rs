@@ -185,7 +185,7 @@ where
 
 impl<E, C> ExternalChoiceCursor<E, C> {
     /// Deactivates subprocess states based on the number of τ's that they could have performed
-    /// so far, compared to the number of τ's that the choice actually have been performed so far.
+    /// so far, compared to the number of τ's that the choice actually has performed so far.
     ///
     /// More specifically: Each subprocess will have some number of τ's that it could have
     /// performed, up to a maximum of self.tau_count.  (The subprocess might be willing to perform
