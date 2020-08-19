@@ -9,7 +9,7 @@ auto_enums = "0.7"
 auto_from = "0.3"
 maplit = "1.0"
 smallbitvec = "2.4"
-smallvec = "0.6"
+smallvec = "1.4"
 
 [dev-dependencies]
 proptest = "0.9"
