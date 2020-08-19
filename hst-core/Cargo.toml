@@ -12,5 +12,5 @@ smallbitvec = "2.4"
 smallvec = "1.4"
 
 [dev-dependencies]
-proptest = "0.9"
+proptest = "0.10"
 proptest-attr-macro = "0.1"
