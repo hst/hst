@@ -5,7 +5,7 @@ authors = ["Douglas Creager <dcreager@dcreager.net>"]
 edition = "2018"
 
 [dependencies]
-auto_enums = "0.5"
+auto_enums = "0.7"
 auto_from = "0.3"
 maplit = "1.0"
 smallbitvec = "2.4"
