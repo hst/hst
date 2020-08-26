@@ -20,7 +20,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use auto_enums::enum_derive;
-use auto_from::From;
+use derive_more::From;
 
 use crate::event::Alphabet;
 use crate::external_choice::ExternalChoice;

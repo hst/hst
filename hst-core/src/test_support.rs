@@ -17,7 +17,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use auto_enums::enum_derive;
-use auto_from::From;
+use derive_more::From;
 use proptest::arbitrary::any;
 use proptest::arbitrary::Arbitrary;
 use proptest::collection::vec;
