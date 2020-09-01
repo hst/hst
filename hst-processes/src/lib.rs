@@ -21,6 +21,7 @@ mod primitives;
 pub use csp::CSP;
 pub use event::DisjointSum;
 pub use event::EventSet;
+pub use maximal_traces::maximal_finite_traces;
 pub use maximal_traces::MaximalTraces;
 pub use primitives::Tau;
 pub use primitives::Tick;

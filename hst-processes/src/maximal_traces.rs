@@ -22,6 +22,10 @@ use std::iter::FromIterator;
 use std::iter::Sum;
 use std::ops::Add;
 
+use crate::csp::CSP;
+use crate::event::EventSet;
+use crate::primitives::Tau;
+
 /// A set of traces that is maximal — where we ensure that no element of the set is a prefix of any
 /// other element.
 #[derive(Clone, Eq, PartialEq)]
@@ -174,4 +178,61 @@ mod maximal_traces_tests {
             .iter()
             .any(|a| maximal_traces.iter().any(|b| *a != *b && a.starts_with(b))));
     }
+}
+
+/// Returns the maximal finite traces of a process.  Note that traces only contain visible events,
+/// and never contain τ!
+pub fn maximal_finite_traces<E, TauProof>(process: &CSP<E>) -> MaximalTraces<E>
+where
+    E: Clone + Eq + EventSet + Tau<TauProof> + Hash,
+{
+    fn subprocess<E, TauProof>(
+        result: &mut MaximalTraces<E>,
+        process: &CSP<E>,
+        previous_processes: &mut Vec<CSP<E>>,
+        current_trace: &mut Vec<E>,
+    ) where
+        E: Clone + Eq + EventSet + Tau<TauProof> + Hash,
+    {
+        // If `process` already appears earlier in the current trace, then we've found a cycle.
+        if previous_processes.contains(&process) {
+            result.insert(current_trace.clone());
+            return;
+        }
+
+        // If the current subprocess doesn't have any outgoing transitions, we've found the end of
+        // a finite trace.
+        let initials = process.initials();
+        if initials.is_empty() {
+            result.insert(current_trace.clone());
+            return;
+        }
+
+        // Otherwise recurse into the subprocesses we get by following each possible event from the
+        // current state.
+        previous_processes.push(process.clone());
+        for (mut initials, after) in process.transitions(&initials) {
+            if initials.can_perform_tau() {
+                subprocess(result, &after, previous_processes, current_trace);
+                initials.subtract(&E::tau());
+            }
+            if !initials.is_empty() {
+                current_trace.push(initials);
+                subprocess(result, &after, previous_processes, current_trace);
+                current_trace.pop();
+            }
+        }
+        previous_processes.pop();
+    }
+
+    let mut result = MaximalTraces::new();
+    let mut previous_processes = Vec::new();
+    let mut current_trace = Vec::new();
+    subprocess(
+        &mut result,
+        process,
+        &mut previous_processes,
+        &mut current_trace,
+    );
+    result
 }
