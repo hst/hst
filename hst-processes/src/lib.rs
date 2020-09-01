@@ -16,3 +16,6 @@
 mod event;
 
 pub use event::EventSet;
+
+#[cfg(test)]
+mod test_support;
