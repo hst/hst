@@ -34,10 +34,10 @@ use crate::primitives::Tick;
 /// An event that is identified by a number.  Makes it easy to construct distinct events in
 /// test cases.
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct NumberedEvent(pub u32);
+pub struct NumberedEvent(pub u16);
 
-impl From<u32> for NumberedEvent {
-    fn from(from: u32) -> NumberedEvent {
+impl From<u16> for NumberedEvent {
+    fn from(from: u16) -> NumberedEvent {
         NumberedEvent(from)
     }
 }
@@ -67,7 +67,7 @@ impl Arbitrary for NumberedEvent {
     type Strategy = BoxedStrategy<NumberedEvent>;
 
     fn arbitrary_with(_args: ()) -> Self::Strategy {
-        (0..100u32).prop_map_into().boxed()
+        any::<u16>().prop_map_into().boxed()
     }
 }
 
@@ -75,7 +75,7 @@ impl Arbitrary for NumberedEvent {
 fn can_display_events() {
     assert_eq!(NumberedEvent(0).to_string(), "E₀");
     assert_eq!(NumberedEvent(10).to_string(), "E₁₀");
-    assert_eq!(NumberedEvent(0123456789).to_string(), "E₁₂₃₄₅₆₇₈₉");
+    assert_eq!(NumberedEvent(01234).to_string(), "E₁₂₃₄");
 }
 
 /// An event type that is useful in test cases.  It can be a NumberedEvent or any of the
