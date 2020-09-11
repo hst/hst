@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "hst-core",
+    "hst-processes",
 ]
 
 # Our proptest-based tests run really slowly when compiled with no
