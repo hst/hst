@@ -18,7 +18,10 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use crate::event::DisjointSum;
 use crate::event::EventSet;
+use crate::event::Here;
+use crate::event::There;
 
 //-------------------------------------------------------------------------------------------------
 // Built-in CSP events
@@ -26,7 +29,7 @@ use crate::event::EventSet;
 /// The _tau_ event (τ).  This is the hidden event that expresses nondeterminism in a CSP process.
 /// You should rarely have to construct it directly, unless you're digging through the transitions
 /// of a process.
-pub trait Tau {
+pub trait Tau<Proof> {
     fn tau() -> Self;
     fn can_perform_tau(&self) -> bool;
 }
@@ -34,7 +37,7 @@ pub trait Tau {
 /// The _tick_ event (✔).  This is the hidden event that represents the end of a process that can
 /// be sequentially composed with another process.  You should rarely have to construct it
 /// directly, unless you're digging through the transitions of a process.
-pub trait Tick {
+pub trait Tick<Proof> {
     fn tick() -> Self;
     fn can_perform_tick(&self) -> bool;
 }
@@ -107,7 +110,7 @@ impl EventSet for PrimitiveEvents {
     }
 }
 
-impl Tau for PrimitiveEvents {
+impl Tau<()> for PrimitiveEvents {
     fn tau() -> Self {
         PrimitiveEvents {
             contains_tau: true,
@@ -120,7 +123,35 @@ impl Tau for PrimitiveEvents {
     }
 }
 
-impl Tick for PrimitiveEvents {
+impl<E, Tail> Tau<Here> for DisjointSum<E, Tail>
+where
+    E: Tau<()>,
+    Tail: EventSet,
+{
+    fn tau() -> Self {
+        DisjointSum::from_a(E::tau())
+    }
+
+    fn can_perform_tau(&self) -> bool {
+        self.0.can_perform_tau()
+    }
+}
+
+impl<Head, Tail, TailIndex> Tau<There<TailIndex>> for DisjointSum<Head, Tail>
+where
+    Head: EventSet,
+    Tail: Tau<TailIndex>,
+{
+    fn tau() -> Self {
+        DisjointSum::from_b(Tail::tau())
+    }
+
+    fn can_perform_tau(&self) -> bool {
+        self.1.can_perform_tau()
+    }
+}
+
+impl Tick<()> for PrimitiveEvents {
     fn tick() -> Self {
         PrimitiveEvents {
             contains_tau: false,
@@ -133,9 +164,42 @@ impl Tick for PrimitiveEvents {
     }
 }
 
+impl<E, Tail> Tick<Here> for DisjointSum<E, Tail>
+where
+    E: Tick<()>,
+    Tail: EventSet,
+{
+    fn tick() -> Self {
+        DisjointSum::from_a(E::tick())
+    }
+
+    fn can_perform_tick(&self) -> bool {
+        self.0.can_perform_tick()
+    }
+}
+
+impl<Head, Tail, TailIndex> Tick<There<TailIndex>> for DisjointSum<Head, Tail>
+where
+    Head: EventSet,
+    Tail: Tick<TailIndex>,
+{
+    fn tick() -> Self {
+        DisjointSum::from_b(Tail::tick())
+    }
+
+    fn can_perform_tick(&self) -> bool {
+        self.1.can_perform_tick()
+    }
+}
+
 #[cfg(test)]
 mod primitive_events_tests {
     use super::*;
+
+    use proptest_attr_macro::proptest;
+
+    use crate::test_support::NumberedEvents;
+    use crate::test_support::TestEvents;
 
     #[test]
     fn can_check_for_tau() {
@@ -145,9 +209,37 @@ mod primitive_events_tests {
     }
 
     #[test]
+    fn can_check_sum_for_tau() {
+        assert!(!TestEvents::empty().can_perform_tau());
+        assert!(TestEvents::tau().can_perform_tau());
+        assert!(TestEvents::universe().can_perform_tau());
+    }
+
+    #[proptest]
+    fn rest_of_sum_does_not_affect_tau(rest: NumberedEvents) {
+        let mut whole = TestEvents::tau();
+        whole.union(&TestEvents::from_b(rest));
+        assert!(whole.can_perform_tau());
+    }
+
+    #[test]
     fn can_check_for_tick() {
         assert!(!PrimitiveEvents::empty().can_perform_tick());
         assert!(PrimitiveEvents::tick().can_perform_tick());
         assert!(PrimitiveEvents::universe().can_perform_tick());
+    }
+
+    #[test]
+    fn can_check_sum_for_tick() {
+        assert!(!TestEvents::empty().can_perform_tick());
+        assert!(TestEvents::tick().can_perform_tick());
+        assert!(TestEvents::universe().can_perform_tick());
+    }
+
+    #[proptest]
+    fn rest_of_sum_does_not_affect_tick(rest: NumberedEvents) {
+        let mut whole = TestEvents::tick();
+        whole.union(&TestEvents::from_b(rest));
+        assert!(whole.can_perform_tick());
     }
 }

@@ -24,7 +24,9 @@ use proptest::collection::hash_set;
 use proptest::strategy::BoxedStrategy;
 use proptest::strategy::Strategy;
 
+use crate::event::DisjointSum;
 use crate::event::EventSet;
+use crate::primitives::PrimitiveEvents;
 
 /// An event that is identified by a number.  Makes it easy to construct distinct events in
 /// test cases.
@@ -245,5 +247,15 @@ mod numbered_events_tests {
         let mut u2 = b.clone();
         u2.union(&a);
         assert_eq!(u1, u2);
+    }
+}
+
+/// An event type that is useful in test cases.  It can be a NumberedEvent or any of the
+/// built-in event types.
+pub type TestEvents = DisjointSum<PrimitiveEvents, NumberedEvents>;
+
+impl From<NumberedEvent> for TestEvents {
+    fn from(event: NumberedEvent) -> TestEvents {
+        TestEvents::from_b(event.into())
     }
 }

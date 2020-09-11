@@ -16,6 +16,7 @@
 mod event;
 mod primitives;
 
+pub use event::DisjointSum;
 pub use event::EventSet;
 pub use primitives::Tau;
 pub use primitives::Tick;
