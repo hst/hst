@@ -13,15 +13,24 @@
 // limitations under the License.
 // ------------------------------------------------------------------------------------------------
 
-mod csp;
-mod event;
-mod primitives;
+//! Defines a process type that includes all of the CSP language.
 
-pub use csp::CSP;
-pub use event::DisjointSum;
-pub use event::EventSet;
-pub use primitives::Tau;
-pub use primitives::Tick;
+use std::marker::PhantomData;
 
-#[cfg(test)]
-mod test_support;
+use crate::event::EventSet;
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct CSP<E>(PhantomData<E>);
+
+impl<E> CSP<E>
+where
+    E: EventSet,
+{
+    pub fn initials(&self) -> E {
+        E::empty()
+    }
+
+    pub fn transitions(&self, _events: &E) -> impl Iterator<Item = (E, CSP<E>)> + '_ {
+        std::iter::empty()
+    }
+}
