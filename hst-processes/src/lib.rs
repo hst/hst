@@ -15,11 +15,13 @@
 
 mod csp;
 mod event;
+mod maximal_traces;
 mod primitives;
 
 pub use csp::CSP;
 pub use event::DisjointSum;
 pub use event::EventSet;
+pub use maximal_traces::MaximalTraces;
 pub use primitives::Tau;
 pub use primitives::Tick;
 
