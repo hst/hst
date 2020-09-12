@@ -17,7 +17,9 @@
 
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::marker::PhantomData;
 
+use crate::csp::CSP;
 use crate::event::DisjointSum;
 use crate::event::EventSet;
 use crate::event::Here;
@@ -341,5 +343,64 @@ mod primitive_events_tests {
             collect(TestEvents::from_a(PrimitiveEvents::universe())),
             vec![TestEvents::tau(), TestEvents::tick()]
         );
+    }
+}
+
+//-------------------------------------------------------------------------------------------------
+// Stop
+
+#[derive(Clone, Eq, Hash, PartialEq)]
+pub(crate) struct Stop<E, P>(PhantomData<E>, PhantomData<P>);
+
+impl<E, P> Stop<E, P> {
+    pub(crate) fn new() -> Stop<E, P> {
+        Stop(PhantomData, PhantomData)
+    }
+}
+
+impl<E, P> Display for Stop<E, P> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("Stop")
+    }
+}
+
+impl<E, P> Debug for Stop<E, P> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        (self as &dyn Display).fmt(f)
+    }
+}
+
+impl<E, P> Stop<E, P>
+where
+    E: EventSet,
+{
+    pub(crate) fn initials(&self) -> E {
+        E::empty()
+    }
+
+    pub(crate) fn transitions(&self, _events: &E) -> impl Iterator<Item = (E, CSP<E>)> {
+        std::iter::empty()
+    }
+}
+
+#[cfg(test)]
+mod stop_tests {
+    use super::*;
+
+    use maplit::hashset;
+
+    use crate::maximal_traces::maximal_finite_traces;
+    use crate::test_support::TestEvents;
+
+    #[test]
+    fn check_stop_initials() {
+        let process = CSP::<TestEvents>::stop();
+        assert_eq!(process.initials(), TestEvents::empty());
+    }
+
+    #[test]
+    fn check_stop_traces() {
+        let process = CSP::<TestEvents>::stop();
+        assert_eq!(maximal_finite_traces(&process), hashset! {vec![]});
     }
 }

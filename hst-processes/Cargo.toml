@@ -6,6 +6,7 @@ edition = "2018"
 
 [dev-dependencies]
 bit-array = "0.4"
+maplit = "1.0"
 proptest = "0.10"
 proptest-attr-macro = "0.1"
 typenum = "1.12"
