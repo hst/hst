@@ -110,6 +110,74 @@ impl EventSet for PrimitiveEvents {
     }
 }
 
+#[derive(Eq, PartialEq)]
+enum PrimitiveEventsIteratorState {
+    Tau,
+    Tick,
+    Done,
+}
+
+pub struct PrimitiveEventsIterator {
+    state: PrimitiveEventsIteratorState,
+    source: PrimitiveEvents,
+}
+
+impl PrimitiveEventsIterator {
+    fn get_tau(&mut self) -> Option<PrimitiveEvents> {
+        self.state = PrimitiveEventsIteratorState::Tick;
+        if !self.source.contains_tau {
+            return None;
+        }
+        Some(PrimitiveEvents {
+            contains_tau: true,
+            contains_tick: false,
+        })
+    }
+
+    fn get_tick(&mut self) -> Option<PrimitiveEvents> {
+        self.state = PrimitiveEventsIteratorState::Done;
+        if !self.source.contains_tick {
+            return None;
+        }
+        Some(PrimitiveEvents {
+            contains_tau: false,
+            contains_tick: true,
+        })
+    }
+}
+
+impl Iterator for PrimitiveEventsIterator {
+    type Item = PrimitiveEvents;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.state == PrimitiveEventsIteratorState::Tau {
+            if let Some(result) = self.get_tau() {
+                return Some(result);
+            }
+        }
+
+        if self.state == PrimitiveEventsIteratorState::Tick {
+            if let Some(result) = self.get_tick() {
+                return Some(result);
+            }
+        }
+
+        None
+    }
+}
+
+impl IntoIterator for PrimitiveEvents {
+    type Item = PrimitiveEvents;
+    type IntoIter = PrimitiveEventsIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        PrimitiveEventsIterator {
+            state: PrimitiveEventsIteratorState::Tau,
+            source: self,
+        }
+    }
+}
+
 impl Tau<()> for PrimitiveEvents {
     fn tau() -> Self {
         PrimitiveEvents {
@@ -241,5 +309,37 @@ mod primitive_events_tests {
         let mut whole = TestEvents::tick();
         whole.union(&TestEvents::from_b(rest));
         assert!(whole.can_perform_tick());
+    }
+
+    #[test]
+    fn can_enumerate() {
+        let collect = |events: PrimitiveEvents| events.into_iter().collect::<Vec<_>>();
+        assert_eq!(collect(PrimitiveEvents::empty()), vec![]);
+        assert_eq!(
+            collect(PrimitiveEvents::tau()),
+            vec![PrimitiveEvents::tau()]
+        );
+        assert_eq!(
+            collect(PrimitiveEvents::tick()),
+            vec![PrimitiveEvents::tick()]
+        );
+        assert_eq!(
+            collect(PrimitiveEvents::universe()),
+            vec![PrimitiveEvents::tau(), PrimitiveEvents::tick()]
+        );
+    }
+
+    #[test]
+    fn can_enumerate_sum() {
+        let collect = |events: TestEvents| events.into_iter().collect::<Vec<_>>();
+        assert_eq!(collect(TestEvents::empty()), vec![]);
+        assert_eq!(collect(TestEvents::tau()), vec![TestEvents::tau()]);
+        assert_eq!(collect(TestEvents::tick()), vec![TestEvents::tick()]);
+        assert_eq!(
+            // Can't use TestEvents::universe here, because that would include all 2^32 possible
+            // NumberedEvents, too.
+            collect(TestEvents::from_a(PrimitiveEvents::universe())),
+            vec![TestEvents::tau(), TestEvents::tick()]
+        );
     }
 }

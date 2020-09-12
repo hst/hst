@@ -169,6 +169,23 @@ impl EventSet for NumberedEvents {
     }
 }
 
+impl IntoIterator for NumberedEvents {
+    type Item = NumberedEvents;
+    type IntoIter = Box<dyn Iterator<Item = NumberedEvents>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Box::new(
+            self.0
+                .into_iter()
+                .enumerate()
+                .filter(|(_index, value)| *value)
+                .map(|(index, _value)| index as u16)
+                .map(NumberedEvent::from)
+                .map(NumberedEvents::from),
+        )
+    }
+}
+
 impl Arbitrary for NumberedEvents {
     type Parameters = ();
     type Strategy = BoxedStrategy<NumberedEvents>;

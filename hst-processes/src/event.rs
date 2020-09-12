@@ -154,3 +154,27 @@ pub struct Here;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct There<T>(PhantomData<T>);
+
+impl<A, B> IntoIterator for DisjointSum<A, B>
+where
+    A: EventSet + IntoIterator<Item = A>,
+    B: EventSet + IntoIterator<Item = B>,
+{
+    type Item = DisjointSum<A, B>;
+    type IntoIter = std::iter::Chain<
+        std::iter::Map<A::IntoIter, fn(A) -> DisjointSum<A, B>>,
+        std::iter::Map<B::IntoIter, fn(B) -> DisjointSum<A, B>>,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let a = self
+            .0
+            .into_iter()
+            .map(DisjointSum::from_a as fn(A) -> DisjointSum<A, B>);
+        let b = self
+            .1
+            .into_iter()
+            .map(DisjointSum::from_b as fn(B) -> DisjointSum<A, B>);
+        a.chain(b)
+    }
+}
