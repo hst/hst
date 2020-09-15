@@ -16,6 +16,7 @@
 mod csp;
 mod event;
 mod maximal_traces;
+mod prefix;
 mod primitives;
 
 pub use csp::CSP;

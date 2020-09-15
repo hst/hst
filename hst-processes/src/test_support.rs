@@ -197,6 +197,27 @@ impl Arbitrary for NumberedEvents {
     }
 }
 
+#[derive(Debug)]
+pub struct NonemptyNumberedEvents(NumberedEvents);
+
+impl From<NonemptyNumberedEvents> for NumberedEvents {
+    fn from(events: NonemptyNumberedEvents) -> NumberedEvents {
+        events.0
+    }
+}
+
+impl Arbitrary for NonemptyNumberedEvents {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<NonemptyNumberedEvents>;
+
+    fn arbitrary_with(_args: ()) -> Self::Strategy {
+        hash_set(any::<NumberedEvent>(), 1..32)
+            .prop_map_into()
+            .prop_map(NonemptyNumberedEvents)
+            .boxed()
+    }
+}
+
 #[cfg(test)]
 mod numbered_events_tests {
     use proptest_attr_macro::proptest;
@@ -274,5 +295,11 @@ pub type TestEvents = DisjointSum<PrimitiveEvents, NumberedEvents>;
 impl From<NumberedEvent> for TestEvents {
     fn from(event: NumberedEvent) -> TestEvents {
         TestEvents::from_b(event.into())
+    }
+}
+
+impl From<NumberedEvents> for TestEvents {
+    fn from(events: NumberedEvents) -> TestEvents {
+        TestEvents::from_b(events)
     }
 }
