@@ -380,10 +380,10 @@ where
         E::empty()
     }
 
-    pub(crate) fn transitions<TickProof>(
+    pub(crate) fn transitions<TauProof, TickProof>(
         &self,
         _events: &E,
-    ) -> impl Iterator<Item = (E, CSP<E, TickProof>)> {
+    ) -> impl Iterator<Item = (E, CSP<E, TauProof, TickProof>)> {
         std::iter::empty()
     }
 }
@@ -399,13 +399,13 @@ mod stop_tests {
 
     #[test]
     fn check_stop_initials() {
-        let process = CSP::<TestEvents, _>::stop();
+        let process = CSP::<TestEvents, _, _>::stop();
         assert_eq!(process.initials(), TestEvents::empty());
     }
 
     #[test]
     fn check_stop_traces() {
-        let process = CSP::<TestEvents, _>::stop();
+        let process = CSP::<TestEvents, _, _>::stop();
         assert_eq!(maximal_finite_traces(&process), hashset! {vec![]});
     }
 }
@@ -442,7 +442,10 @@ where
         E::tick()
     }
 
-    pub(crate) fn transitions(&self, events: &E) -> impl Iterator<Item = (E, CSP<E, TickProof>)> {
+    pub(crate) fn transitions<TauProof>(
+        &self,
+        events: &E,
+    ) -> impl Iterator<Item = (E, CSP<E, TauProof, TickProof>)> {
         if !events.can_perform_tick() {
             return Either::Left(std::iter::empty());
         }
@@ -463,13 +466,13 @@ mod skip_tests {
 
     #[test]
     fn check_skip_initials() {
-        let process = CSP::<TestEvents, _>::skip();
+        let process = CSP::<TestEvents, _, _>::skip();
         assert_eq!(process.initials(), TestEvents::tick());
     }
 
     #[test]
     fn check_skip_traces() {
-        let process = CSP::<TestEvents, _>::skip();
+        let process = CSP::<TestEvents, _, _>::skip();
         assert_eq!(
             maximal_finite_traces(&process),
             hashset! {vec![TestEvents::tick()]}

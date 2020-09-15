@@ -20,15 +20,17 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::event::EventSet;
+use crate::internal_choice::InternalChoice;
 use crate::prefix::Prefix;
 use crate::primitives::Skip;
 use crate::primitives::Stop;
+use crate::primitives::Tau;
 use crate::primitives::Tick;
 
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct CSP<E, TickProof>(Rc<CSPInner<E, TickProof>>);
+pub struct CSP<E, TauProof, TickProof>(Rc<CSPInner<E, TauProof, TickProof>>);
 
-impl<E, TickProof> Display for CSP<E, TickProof>
+impl<E, TauProof, TickProof> Display for CSP<E, TauProof, TickProof>
 where
     E: Display,
 {
@@ -37,7 +39,7 @@ where
     }
 }
 
-impl<E, TickProof> Debug for CSP<E, TickProof>
+impl<E, TauProof, TickProof> Debug for CSP<E, TauProof, TickProof>
 where
     E: Debug,
 {
@@ -46,11 +48,33 @@ where
     }
 }
 
-impl<E, TickProof> CSP<E, TickProof> {
+impl<E, TauProof, TickProof> CSP<E, TauProof, TickProof> {
+    /// Constructs a new _internal choice_ process `P ⊓ Q`.  This process behaves either like `P`
+    /// _or_ `Q`, but the environment has no control over which one is chosen.
+    pub fn internal_choice(p: Self, q: Self) -> Self {
+        CSP(Rc::new(CSPInner::InternalChoice(InternalChoice::new(
+            vec![p, q],
+        ))))
+    }
+
     /// Constructs a new _prefix_ process `{a} → P`.  This process performs any event in `a` and
     /// then behaves like process `P`.
     pub fn prefix(initials: E, after: Self) -> Self {
         CSP(Rc::new(CSPInner::Prefix(Prefix::new(initials, after))))
+    }
+
+    /// Constructs a new _replicated internal choice_ process `⊓ Ps` over a non-empty collection of
+    /// processes.  The process behaves like one of the processes in the set, but the environment
+    /// has no control over which one is chosen.
+    ///
+    /// Panics if `ps` is empty.
+    pub fn replicated_internal_choice<I>(ps: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        CSP(Rc::new(CSPInner::InternalChoice(InternalChoice::new(
+            ps.into_iter().collect(),
+        ))))
     }
 
     /// Constructs a new _Skip_ process.  The process that performs ✔ and then becomes _Stop_.
@@ -67,33 +91,39 @@ impl<E, TickProof> CSP<E, TickProof> {
     }
 }
 
-impl<E, TickProof> CSP<E, TickProof>
+impl<E, TauProof, TickProof> CSP<E, TauProof, TickProof>
 where
-    E: Clone + EventSet + Tick<TickProof>,
+    E: Clone + EventSet + Tau<TauProof> + Tick<TickProof>,
+    TauProof: Clone,
     TickProof: Clone,
 {
     pub fn initials(&self) -> E {
         self.0.initials()
     }
 
-    pub fn transitions(&self, events: &E) -> impl Iterator<Item = (E, CSP<E, TickProof>)> + '_ {
+    pub fn transitions(
+        &self,
+        events: &E,
+    ) -> impl Iterator<Item = (E, CSP<E, TauProof, TickProof>)> + '_ {
         self.0.transitions(events)
     }
 }
 
 #[derive(Eq, Hash, PartialEq)]
-enum CSPInner<E, TickProof> {
-    Prefix(Prefix<E, TickProof>),
+enum CSPInner<E, TauProof, TickProof> {
+    InternalChoice(InternalChoice<E, TauProof, TickProof>),
+    Prefix(Prefix<E, TauProof, TickProof>),
     Skip(Skip<E, TickProof>),
     Stop(Stop<E>),
 }
 
-impl<E, TickProof> Display for CSPInner<E, TickProof>
+impl<E, TauProof, TickProof> Display for CSPInner<E, TauProof, TickProof>
 where
     E: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            CSPInner::InternalChoice(this) => (this as &dyn Display).fmt(f),
             CSPInner::Prefix(this) => (this as &dyn Display).fmt(f),
             CSPInner::Skip(this) => (this as &dyn Display).fmt(f),
             CSPInner::Stop(this) => (this as &dyn Display).fmt(f),
@@ -101,12 +131,13 @@ where
     }
 }
 
-impl<E, TickProof> Debug for CSPInner<E, TickProof>
+impl<E, TauProof, TickProof> Debug for CSPInner<E, TauProof, TickProof>
 where
     E: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            CSPInner::InternalChoice(this) => (this as &dyn Debug).fmt(f),
             CSPInner::Prefix(this) => (this as &dyn Debug).fmt(f),
             CSPInner::Skip(this) => (this as &dyn Debug).fmt(f),
             CSPInner::Stop(this) => (this as &dyn Debug).fmt(f),
@@ -114,21 +145,27 @@ where
     }
 }
 
-impl<E, TickProof> CSPInner<E, TickProof>
+impl<E, TauProof, TickProof> CSPInner<E, TauProof, TickProof>
 where
-    E: Clone + EventSet + Tick<TickProof>,
+    E: Clone + EventSet + Tau<TauProof> + Tick<TickProof>,
+    TauProof: Clone,
     TickProof: Clone,
 {
     fn initials(&self) -> E {
         match self {
+            CSPInner::InternalChoice(this) => this.initials(),
             CSPInner::Prefix(this) => this.initials(),
             CSPInner::Skip(this) => this.initials(),
             CSPInner::Stop(this) => this.initials(),
         }
     }
 
-    fn transitions(&self, events: &E) -> Box<dyn Iterator<Item = (E, CSP<E, TickProof>)> + '_> {
+    fn transitions(
+        &self,
+        events: &E,
+    ) -> Box<dyn Iterator<Item = (E, CSP<E, TauProof, TickProof>)> + '_> {
         match self {
+            CSPInner::InternalChoice(this) => Box::new(this.transitions(events)),
             CSPInner::Prefix(this) => Box::new(this.transitions(events)),
             CSPInner::Skip(this) => Box::new(this.transitions(events)),
             CSPInner::Stop(this) => Box::new(this.transitions(events)),
@@ -163,14 +200,15 @@ mod proptest_support {
         }
     }
 
-    impl<E, TickProof> Arbitrary for CSP<E, TickProof>
+    impl<E, TauProof, TickProof> Arbitrary for CSP<E, TauProof, TickProof>
     where
-        E: Clone + Debug + Display + NameableEvents + Tick<TickProof> + 'static,
+        E: Clone + Debug + Display + NameableEvents + Tau<TauProof> + Tick<TickProof> + 'static,
         E::Strategy: Strategy<Value = E>,
+        TauProof: Clone + 'static,
         TickProof: Clone + 'static,
     {
         type Parameters = ();
-        type Strategy = BoxedStrategy<CSP<E, TickProof>>;
+        type Strategy = BoxedStrategy<CSP<E, TauProof, TickProof>>;
 
         fn arbitrary_with(_args: ()) -> Self::Strategy {
             let leaf = prop_oneof![Just(CSP::stop()), Just(CSP::skip())];

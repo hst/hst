@@ -21,6 +21,7 @@ use bit_array::BitArray;
 use proptest::arbitrary::any;
 use proptest::arbitrary::Arbitrary;
 use proptest::collection::hash_set;
+use proptest::collection::vec;
 use proptest::strategy::BoxedStrategy;
 use proptest::strategy::Strategy;
 
@@ -301,5 +302,25 @@ impl From<NumberedEvent> for TestEvents {
 impl From<NumberedEvents> for TestEvents {
     fn from(events: NumberedEvents) -> TestEvents {
         TestEvents::from_b(events)
+    }
+}
+
+/// A proptest helper type that generates a non-empty vector of values.
+#[derive(Clone, Debug)]
+pub struct NonemptyVec<T> {
+    pub vec: Vec<T>,
+}
+
+impl<T> Arbitrary for NonemptyVec<T>
+where
+    T: Arbitrary + Clone + Debug + 'static,
+{
+    type Parameters = ();
+    type Strategy = BoxedStrategy<NonemptyVec<T>>;
+
+    fn arbitrary_with(_args: ()) -> Self::Strategy {
+        vec(any::<T>(), 1..16)
+            .prop_map(|vec| NonemptyVec { vec })
+            .boxed()
     }
 }

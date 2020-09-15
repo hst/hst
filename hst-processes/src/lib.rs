@@ -15,6 +15,7 @@
 
 mod csp;
 mod event;
+mod internal_choice;
 mod maximal_traces;
 mod prefix;
 mod primitives;

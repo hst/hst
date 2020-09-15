@@ -24,9 +24,9 @@ use crate::csp::CSP;
 use crate::event::EventSet;
 
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct Prefix<E, TickProof>(E, CSP<E, TickProof>);
+pub struct Prefix<E, TauProof, TickProof>(E, CSP<E, TauProof, TickProof>);
 
-impl<E, TickProof> Debug for Prefix<E, TickProof>
+impl<E, TauProof, TickProof> Debug for Prefix<E, TauProof, TickProof>
 where
     E: Debug,
 {
@@ -35,7 +35,7 @@ where
     }
 }
 
-impl<E, TickProof> Display for Prefix<E, TickProof>
+impl<E, TauProof, TickProof> Display for Prefix<E, TauProof, TickProof>
 where
     E: Display,
 {
@@ -44,8 +44,11 @@ where
     }
 }
 
-impl<E, TickProof> Prefix<E, TickProof> {
-    pub(crate) fn new(initials: E, after: CSP<E, TickProof>) -> Prefix<E, TickProof> {
+impl<E, TauProof, TickProof> Prefix<E, TauProof, TickProof> {
+    pub(crate) fn new(
+        initials: E,
+        after: CSP<E, TauProof, TickProof>,
+    ) -> Prefix<E, TauProof, TickProof> {
         Prefix(initials, after)
     }
 }
@@ -55,16 +58,20 @@ impl<E, TickProof> Prefix<E, TickProof> {
 // 1) ─────────────
 //     a → P -a→ P
 
-impl<E, TickProof> Prefix<E, TickProof>
+impl<E, TauProof, TickProof> Prefix<E, TauProof, TickProof>
 where
     E: Clone + EventSet,
+    TauProof: Clone,
     TickProof: Clone,
 {
     pub(crate) fn initials(&self) -> E {
         self.0.clone()
     }
 
-    pub(crate) fn transitions(&self, events: &E) -> impl Iterator<Item = (E, CSP<E, TickProof>)> {
+    pub(crate) fn transitions(
+        &self,
+        events: &E,
+    ) -> impl Iterator<Item = (E, CSP<E, TauProof, TickProof>)> {
         let mut events = events.clone();
         events.intersect(&self.0);
         if events.is_empty() {
@@ -85,14 +92,14 @@ mod prefix_tests {
     use crate::test_support::TestEvents;
 
     #[proptest]
-    fn check_prefix_initials(initials: NonemptyNumberedEvents, after: CSP<TestEvents, _>) {
+    fn check_prefix_initials(initials: NonemptyNumberedEvents, after: CSP<TestEvents, _, _>) {
         let initials = TestEvents::from_b(initials.into());
         let process = CSP::prefix(initials.clone(), after.clone());
         assert_eq!(process.initials(), initials);
     }
 
     #[proptest]
-    fn check_prefix_traces(initials: NonemptyNumberedEvents, after: CSP<TestEvents, _>) {
+    fn check_prefix_traces(initials: NonemptyNumberedEvents, after: CSP<TestEvents, _, _>) {
         let initials = TestEvents::from_b(initials.into());
         let process = CSP::prefix(initials.clone(), after.clone());
         assert_eq!(

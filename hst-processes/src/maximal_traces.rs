@@ -184,19 +184,21 @@ mod maximal_traces_tests {
 /// Returns the maximal finite traces of a process.  Note that traces only contain visible events,
 /// and never contain τ!
 pub fn maximal_finite_traces<E, TauProof, TickProof>(
-    process: &CSP<E, TickProof>,
+    process: &CSP<E, TauProof, TickProof>,
 ) -> MaximalTraces<E>
 where
     E: Clone + Eq + EventSet + Tau<TauProof> + Tick<TickProof> + Hash,
+    TauProof: Clone + PartialEq,
     TickProof: Clone + PartialEq,
 {
     fn subprocess<E, TauProof, TickProof>(
         result: &mut MaximalTraces<E>,
-        process: &CSP<E, TickProof>,
-        previous_processes: &mut Vec<CSP<E, TickProof>>,
+        process: &CSP<E, TauProof, TickProof>,
+        previous_processes: &mut Vec<CSP<E, TauProof, TickProof>>,
         current_trace: &mut Vec<E>,
     ) where
         E: Clone + Eq + EventSet + Tau<TauProof> + Tick<TickProof> + Hash,
+        TauProof: Clone + PartialEq,
         TickProof: Clone + PartialEq,
     {
         // If `process` already appears earlier in the current trace, then we've found a cycle.
