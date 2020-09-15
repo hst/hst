@@ -18,12 +18,21 @@
 use std::rc::Rc;
 
 use crate::event::EventSet;
+use crate::primitives::Skip;
 use crate::primitives::Stop;
+use crate::primitives::Tick;
 
 #[derive(Clone, Eq, PartialEq)]
-pub struct CSP<E>(Rc<CSPInner<E>>);
+pub struct CSP<E, TickProof>(Rc<CSPInner<E, TickProof>>);
 
-impl<E> CSP<E> {
+impl<E, TickProof> CSP<E, TickProof> {
+    /// Constructs a new _Skip_ process.  The process that performs ✔ and then becomes _Stop_.
+    /// Used to indicate the end of a process that can be sequentially composed with something
+    /// else.
+    pub fn skip() -> Self {
+        CSP(Rc::new(CSPInner::Skip(Skip::new())))
+    }
+
     /// Constructs a new _Stop_ process.  This is the process that performs no actions (and
     /// prevents any other synchronized processes from performing any, either).
     pub fn stop() -> Self {
@@ -31,36 +40,39 @@ impl<E> CSP<E> {
     }
 }
 
-impl<E> CSP<E>
+impl<E, TickProof> CSP<E, TickProof>
 where
-    E: EventSet,
+    E: EventSet + Tick<TickProof>,
 {
     pub fn initials(&self) -> E {
         self.0.initials()
     }
 
-    pub fn transitions(&self, events: &E) -> impl Iterator<Item = (E, CSP<E>)> + '_ {
+    pub fn transitions(&self, events: &E) -> impl Iterator<Item = (E, CSP<E, TickProof>)> + '_ {
         self.0.transitions(events)
     }
 }
 
 #[derive(Eq, PartialEq)]
-enum CSPInner<E> {
-    Stop(Stop<E, CSP<E>>),
+enum CSPInner<E, TickProof> {
+    Skip(Skip<E, TickProof>),
+    Stop(Stop<E>),
 }
 
-impl<E> CSPInner<E>
+impl<E, TickProof> CSPInner<E, TickProof>
 where
-    E: EventSet,
+    E: EventSet + Tick<TickProof>,
 {
     fn initials(&self) -> E {
         match self {
+            CSPInner::Skip(this) => this.initials(),
             CSPInner::Stop(this) => this.initials(),
         }
     }
 
-    fn transitions(&self, events: &E) -> Box<dyn Iterator<Item = (E, CSP<E>)> + '_> {
+    fn transitions(&self, events: &E) -> Box<dyn Iterator<Item = (E, CSP<E, TickProof>)> + '_> {
         match self {
+            CSPInner::Skip(this) => Box::new(this.transitions(events)),
             CSPInner::Stop(this) => Box::new(this.transitions(events)),
         }
     }

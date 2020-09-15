@@ -25,6 +25,7 @@ use std::ops::Add;
 use crate::csp::CSP;
 use crate::event::EventSet;
 use crate::primitives::Tau;
+use crate::primitives::Tick;
 
 /// A set of traces that is maximal — where we ensure that no element of the set is a prefix of any
 /// other element.
@@ -182,17 +183,21 @@ mod maximal_traces_tests {
 
 /// Returns the maximal finite traces of a process.  Note that traces only contain visible events,
 /// and never contain τ!
-pub fn maximal_finite_traces<E, TauProof>(process: &CSP<E>) -> MaximalTraces<E>
+pub fn maximal_finite_traces<E, TauProof, TickProof>(
+    process: &CSP<E, TickProof>,
+) -> MaximalTraces<E>
 where
-    E: Clone + Eq + EventSet + Tau<TauProof> + Hash,
+    E: Clone + Eq + EventSet + Tau<TauProof> + Tick<TickProof> + Hash,
+    TickProof: Clone + PartialEq,
 {
-    fn subprocess<E, TauProof>(
+    fn subprocess<E, TauProof, TickProof>(
         result: &mut MaximalTraces<E>,
-        process: &CSP<E>,
-        previous_processes: &mut Vec<CSP<E>>,
+        process: &CSP<E, TickProof>,
+        previous_processes: &mut Vec<CSP<E, TickProof>>,
         current_trace: &mut Vec<E>,
     ) where
-        E: Clone + Eq + EventSet + Tau<TauProof> + Hash,
+        E: Clone + Eq + EventSet + Tau<TauProof> + Tick<TickProof> + Hash,
+        TickProof: Clone + PartialEq,
     {
         // If `process` already appears earlier in the current trace, then we've found a cycle.
         if previous_processes.contains(&process) {

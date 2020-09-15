@@ -19,6 +19,8 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::marker::PhantomData;
 
+use itertools::Either;
+
 use crate::csp::CSP;
 use crate::event::DisjointSum;
 use crate::event::EventSet;
@@ -350,27 +352,27 @@ mod primitive_events_tests {
 // Stop
 
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub(crate) struct Stop<E, P>(PhantomData<E>, PhantomData<P>);
+pub(crate) struct Stop<E>(PhantomData<E>);
 
-impl<E, P> Stop<E, P> {
-    pub(crate) fn new() -> Stop<E, P> {
-        Stop(PhantomData, PhantomData)
+impl<E> Stop<E> {
+    pub(crate) fn new() -> Stop<E> {
+        Stop(PhantomData)
     }
 }
 
-impl<E, P> Display for Stop<E, P> {
+impl<E> Display for Stop<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.write_str("Stop")
     }
 }
 
-impl<E, P> Debug for Stop<E, P> {
+impl<E> Debug for Stop<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         (self as &dyn Display).fmt(f)
     }
 }
 
-impl<E, P> Stop<E, P>
+impl<E> Stop<E>
 where
     E: EventSet,
 {
@@ -378,7 +380,10 @@ where
         E::empty()
     }
 
-    pub(crate) fn transitions(&self, _events: &E) -> impl Iterator<Item = (E, CSP<E>)> {
+    pub(crate) fn transitions<TickProof>(
+        &self,
+        _events: &E,
+    ) -> impl Iterator<Item = (E, CSP<E, TickProof>)> {
         std::iter::empty()
     }
 }
@@ -394,13 +399,80 @@ mod stop_tests {
 
     #[test]
     fn check_stop_initials() {
-        let process = CSP::<TestEvents>::stop();
+        let process = CSP::<TestEvents, _>::stop();
         assert_eq!(process.initials(), TestEvents::empty());
     }
 
     #[test]
     fn check_stop_traces() {
-        let process = CSP::<TestEvents>::stop();
+        let process = CSP::<TestEvents, _>::stop();
         assert_eq!(maximal_finite_traces(&process), hashset! {vec![]});
+    }
+}
+
+//-------------------------------------------------------------------------------------------------
+// Skip
+
+#[derive(Clone, Eq, Hash, PartialEq)]
+pub(crate) struct Skip<E, TickProof>(PhantomData<E>, PhantomData<TickProof>);
+
+impl<E, TickProof> Skip<E, TickProof> {
+    pub(crate) fn new() -> Skip<E, TickProof> {
+        Skip(PhantomData, PhantomData)
+    }
+}
+
+impl<E, TickProof> Display for Skip<E, TickProof> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("Skip")
+    }
+}
+
+impl<E, TickProof> Debug for Skip<E, TickProof> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        (self as &dyn Display).fmt(f)
+    }
+}
+
+impl<E, TickProof> Skip<E, TickProof>
+where
+    E: EventSet + Tick<TickProof>,
+{
+    pub(crate) fn initials(&self) -> E {
+        E::tick()
+    }
+
+    pub(crate) fn transitions(&self, events: &E) -> impl Iterator<Item = (E, CSP<E, TickProof>)> {
+        if !events.can_perform_tick() {
+            return Either::Left(std::iter::empty());
+        }
+
+        Either::Right(std::iter::once((E::tick(), CSP::stop())))
+    }
+}
+
+#[cfg(test)]
+mod skip_tests {
+    use super::*;
+
+    use maplit::hashset;
+
+    use crate::csp::CSP;
+    use crate::maximal_traces::maximal_finite_traces;
+    use crate::test_support::TestEvents;
+
+    #[test]
+    fn check_skip_initials() {
+        let process = CSP::<TestEvents, _>::skip();
+        assert_eq!(process.initials(), TestEvents::tick());
+    }
+
+    #[test]
+    fn check_skip_traces() {
+        let process = CSP::<TestEvents, _>::skip();
+        assert_eq!(
+            maximal_finite_traces(&process),
+            hashset! {vec![TestEvents::tick()]}
+        );
     }
 }
