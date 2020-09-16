@@ -19,6 +19,9 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::rc::Rc;
 
+use generational_arena::Arena;
+use generational_arena::Index;
+
 use crate::event::EventSet;
 use crate::external_choice::ExternalChoice;
 use crate::internal_choice::InternalChoice;
@@ -29,60 +32,94 @@ use crate::primitives::Tau;
 use crate::primitives::Tick;
 use crate::sequential_composition::SequentialComposition;
 
-#[derive(Clone, Eq, Hash, PartialEq)]
-pub struct CSP<E, TauProof, TickProof>(Rc<CSPInner<E, TauProof, TickProof>>);
+pub struct CSP<E, TauProof, TickProof> {
+    arena: Arena<CSPInner<E, TauProof, TickProof>>,
+}
 
-impl<E, TauProof, TickProof> Display for CSP<E, TauProof, TickProof>
+#[derive(Clone)]
+pub struct Process<'p, E, TauProof, TickProof> {
+    parent: &'p CSP<E, TauProof, TickProof>,
+    index: Index,
+}
+
+impl<'p, E, TauProof, TickProof> Process<'p, E, TauProof, TickProof> {
+    fn inner(&self) -> &CSPInner<E, TauProof, TickProof> {
+        self.parent.arena[self.index]
+    }
+}
+
+impl<'p, E, TauProof, TickProof> Display for Process<'p, E, TauProof, TickProof>
 where
     E: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        (&self.0 as &dyn Display).fmt(f)
+        (self.inner() as &dyn Display).fmt(f)
     }
 }
 
-impl<E, TauProof, TickProof> Debug for CSP<E, TauProof, TickProof>
+impl<'p, E, TauProof, TickProof> Debug for Process<'p, E, TauProof, TickProof>
 where
     E: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        (&self.0 as &dyn Debug).fmt(f)
+        (self.inner() as &dyn Debug).fmt(f)
     }
 }
 
 impl<E, TauProof, TickProof> CSP<E, TauProof, TickProof> {
+    fn new_process<'p>(
+        &'p self,
+        inner: CSPInner<E, TauProof, TickProof>,
+    ) -> Process<'p, E, TauProof, TickProof> {
+        let index = self.arena.add(inner);
+        Process {
+            inner: Rc::new(ProcessInner {
+                parent: self,
+                index,
+            }),
+        }
+    }
+
     /// Constructs a new _external choice_ process `P □ Q`.  This process behaves either like `P`
     /// _or_ `Q`, and the environment gets to choose — the process is willing to do either.
-    pub fn external_choice(p: Self, q: Self) -> Self {
-        CSP(Rc::new(CSPInner::ExternalChoice(ExternalChoice::new(
-            vec![p, q],
-        ))))
+    pub fn external_choice<'p>(
+        &'p self,
+        p: Process<'p, E, TauProof, TickProof>,
+        q: Process<'p, E, TauProof, TickProof>,
+    ) -> Process<'p, E, TauProof, TickProof> {
+        self.new_process(CSPInner::ExternalChoice(ExternalChoice::new(vec![p, q])))
     }
 
     /// Constructs a new _external choice_ process `P ⊓ Q`.  This process behaves either like `P`
     /// _or_ `Q`, but the environment has no control over which one is chosen.
-    pub fn internal_choice(p: Self, q: Self) -> Self {
-        CSP(Rc::new(CSPInner::InternalChoice(InternalChoice::new(
-            vec![p, q],
-        ))))
+    pub fn internal_choice<'p>(
+        &'p self,
+        p: Process<'p, E, TauProof, TickProof>,
+        q: Process<'p, E, TauProof, TickProof>,
+    ) -> Process<'p, E, TauProof, TickProof> {
+        self.new_process(CSPInner::InternalChoice(InternalChoice::new(vec![p, q])))
     }
 
     /// Constructs a new _prefix_ process `{a} → P`.  This process performs any event in `a` and
     /// then behaves like process `P`.
-    pub fn prefix(initials: E, after: Self) -> Self {
-        CSP(Rc::new(CSPInner::Prefix(Prefix::new(initials, after))))
+    pub fn prefix<'p>(
+        &'p self,
+        initials: E,
+        after: Process<'p, E, TauProof, TickProof>,
+    ) -> Process<'p, E, TauProof, TickProof> {
+        self.new_process(CSPInner::Prefix(Prefix::new(initials, after)))
     }
 
     /// Constructs a new _replicated external choice_ process `□ Ps` over a non-empty collection of
     /// processes.  The process behaves like one of the processes in the set, but the environment
     /// has no control over which one is chosen.
-    pub fn replicated_external_choice<I>(ps: I) -> Self
+    pub fn replicated_external_choice<'p, I>(&'p self, ps: I) -> Process<'p, E, TauProof, TickProof>
     where
-        I: IntoIterator<Item = Self>,
+        I: IntoIterator<Item = Process<'p, E, TauProof, TickProof>>,
     {
-        CSP(Rc::new(CSPInner::ExternalChoice(ExternalChoice::new(
+        self.new_process(CSPInner::ExternalChoice(ExternalChoice::new(
             ps.into_iter().collect(),
-        ))))
+        )))
     }
 
     /// Constructs a new _replicated internal choice_ process `⊓ Ps` over a non-empty collection of
@@ -90,34 +127,38 @@ impl<E, TauProof, TickProof> CSP<E, TauProof, TickProof> {
     /// has no control over which one is chosen.
     ///
     /// Panics if `ps` is empty.
-    pub fn replicated_internal_choice<I>(ps: I) -> Self
+    pub fn replicated_internal_choice<'p, I>(&'p self, ps: I) -> Process<'p, E, TauProof, TickProof>
     where
-        I: IntoIterator<Item = Self>,
+        I: IntoIterator<Item = Process<'p, E, TauProof, TickProof>>,
     {
-        CSP(Rc::new(CSPInner::InternalChoice(InternalChoice::new(
+        self.new_process(CSPInner::InternalChoice(InternalChoice::new(
             ps.into_iter().collect(),
-        ))))
+        )))
     }
 
     /// Constructs a new _sequential composition_ process `P ; Q`.  This process behaves like
     /// process `P` until it performs a ✔ event, after which is behaves like process `Q`.
-    pub fn sequential_composition(p: Self, q: Self) -> Self {
-        CSP(Rc::new(CSPInner::SequentialComposition(
-            SequentialComposition::new(p, q),
+    pub fn sequential_composition<'p>(
+        &'p self,
+        p: Process<'p, E, TauProof, TickProof>,
+        q: Process<'p, E, TauProof, TickProof>,
+    ) -> Process<'p, E, TauProof, TickProof> {
+        self.new_process(CSPInner::SequentialComposition(SequentialComposition::new(
+            p, q,
         )))
     }
 
     /// Constructs a new _Skip_ process.  The process that performs ✔ and then becomes _Stop_.
     /// Used to indicate the end of a process that can be sequentially composed with something
     /// else.
-    pub fn skip() -> Self {
-        CSP(Rc::new(CSPInner::Skip(Skip::new())))
+    pub fn skip<'p>(&'p self) -> Process<'p, E, TauProof, TickProof> {
+        self.new_process(CSPInner::Skip(Skip::new()))
     }
 
     /// Constructs a new _Stop_ process.  This is the process that performs no actions (and
     /// prevents any other synchronized processes from performing any, either).
-    pub fn stop() -> Self {
-        CSP(Rc::new(CSPInner::Stop(Stop::new())))
+    pub fn stop<'p>(&'p self) -> Process<'p, E, TauProof, TickProof> {
+        self.new_process(CSPInner::Stop(Stop::new()))
     }
 }
 

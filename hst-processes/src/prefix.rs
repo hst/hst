@@ -18,6 +18,7 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use generational_arena::Index;
 use itertools::Either;
 
 use crate::csp::CSP;
