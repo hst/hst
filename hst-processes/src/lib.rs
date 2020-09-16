@@ -20,6 +20,7 @@ mod internal_choice;
 mod maximal_traces;
 mod prefix;
 mod primitives;
+mod sequential_composition;
 
 pub use csp::CSP;
 pub use event::DisjointSum;

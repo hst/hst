@@ -27,6 +27,7 @@ use crate::primitives::Skip;
 use crate::primitives::Stop;
 use crate::primitives::Tau;
 use crate::primitives::Tick;
+use crate::sequential_composition::SequentialComposition;
 
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct CSP<E, TauProof, TickProof>(Rc<CSPInner<E, TauProof, TickProof>>);
@@ -98,6 +99,14 @@ impl<E, TauProof, TickProof> CSP<E, TauProof, TickProof> {
         ))))
     }
 
+    /// Constructs a new _sequential composition_ process `P ; Q`.  This process behaves like
+    /// process `P` until it performs a ✔ event, after which is behaves like process `Q`.
+    pub fn sequential_composition(p: Self, q: Self) -> Self {
+        CSP(Rc::new(CSPInner::SequentialComposition(
+            SequentialComposition::new(p, q),
+        )))
+    }
+
     /// Constructs a new _Skip_ process.  The process that performs ✔ and then becomes _Stop_.
     /// Used to indicate the end of a process that can be sequentially composed with something
     /// else.
@@ -135,6 +144,7 @@ enum CSPInner<E, TauProof, TickProof> {
     ExternalChoice(ExternalChoice<E, TauProof, TickProof>),
     InternalChoice(InternalChoice<E, TauProof, TickProof>),
     Prefix(Prefix<E, TauProof, TickProof>),
+    SequentialComposition(SequentialComposition<E, TauProof, TickProof>),
     Skip(Skip<E, TickProof>),
     Stop(Stop<E>),
 }
@@ -148,6 +158,7 @@ where
             CSPInner::ExternalChoice(this) => (this as &dyn Display).fmt(f),
             CSPInner::InternalChoice(this) => (this as &dyn Display).fmt(f),
             CSPInner::Prefix(this) => (this as &dyn Display).fmt(f),
+            CSPInner::SequentialComposition(this) => (this as &dyn Display).fmt(f),
             CSPInner::Skip(this) => (this as &dyn Display).fmt(f),
             CSPInner::Stop(this) => (this as &dyn Display).fmt(f),
         }
@@ -163,6 +174,7 @@ where
             CSPInner::ExternalChoice(this) => (this as &dyn Debug).fmt(f),
             CSPInner::InternalChoice(this) => (this as &dyn Debug).fmt(f),
             CSPInner::Prefix(this) => (this as &dyn Debug).fmt(f),
+            CSPInner::SequentialComposition(this) => (this as &dyn Debug).fmt(f),
             CSPInner::Skip(this) => (this as &dyn Debug).fmt(f),
             CSPInner::Stop(this) => (this as &dyn Debug).fmt(f),
         }
@@ -180,6 +192,7 @@ where
             CSPInner::ExternalChoice(this) => this.initials(),
             CSPInner::InternalChoice(this) => this.initials(),
             CSPInner::Prefix(this) => this.initials(),
+            CSPInner::SequentialComposition(this) => this.initials(),
             CSPInner::Skip(this) => this.initials(),
             CSPInner::Stop(this) => this.initials(),
         }
@@ -193,6 +206,7 @@ where
             CSPInner::ExternalChoice(this) => Box::new(this.transitions(events)),
             CSPInner::InternalChoice(this) => Box::new(this.transitions(events)),
             CSPInner::Prefix(this) => Box::new(this.transitions(events)),
+            CSPInner::SequentialComposition(this) => Box::new(this.transitions(events)),
             CSPInner::Skip(this) => Box::new(this.transitions(events)),
             CSPInner::Stop(this) => Box::new(this.transitions(events)),
         }
