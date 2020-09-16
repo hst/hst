@@ -20,6 +20,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::event::EventSet;
+use crate::external_choice::ExternalChoice;
 use crate::internal_choice::InternalChoice;
 use crate::prefix::Prefix;
 use crate::primitives::Skip;
@@ -49,7 +50,15 @@ where
 }
 
 impl<E, TauProof, TickProof> CSP<E, TauProof, TickProof> {
-    /// Constructs a new _internal choice_ process `P ⊓ Q`.  This process behaves either like `P`
+    /// Constructs a new _external choice_ process `P □ Q`.  This process behaves either like `P`
+    /// _or_ `Q`, and the environment gets to choose — the process is willing to do either.
+    pub fn external_choice(p: Self, q: Self) -> Self {
+        CSP(Rc::new(CSPInner::ExternalChoice(ExternalChoice::new(
+            vec![p, q],
+        ))))
+    }
+
+    /// Constructs a new _external choice_ process `P ⊓ Q`.  This process behaves either like `P`
     /// _or_ `Q`, but the environment has no control over which one is chosen.
     pub fn internal_choice(p: Self, q: Self) -> Self {
         CSP(Rc::new(CSPInner::InternalChoice(InternalChoice::new(
@@ -61,6 +70,18 @@ impl<E, TauProof, TickProof> CSP<E, TauProof, TickProof> {
     /// then behaves like process `P`.
     pub fn prefix(initials: E, after: Self) -> Self {
         CSP(Rc::new(CSPInner::Prefix(Prefix::new(initials, after))))
+    }
+
+    /// Constructs a new _replicated external choice_ process `□ Ps` over a non-empty collection of
+    /// processes.  The process behaves like one of the processes in the set, but the environment
+    /// has no control over which one is chosen.
+    pub fn replicated_external_choice<I>(ps: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        CSP(Rc::new(CSPInner::ExternalChoice(ExternalChoice::new(
+            ps.into_iter().collect(),
+        ))))
     }
 
     /// Constructs a new _replicated internal choice_ process `⊓ Ps` over a non-empty collection of
@@ -111,6 +132,7 @@ where
 
 #[derive(Eq, Hash, PartialEq)]
 enum CSPInner<E, TauProof, TickProof> {
+    ExternalChoice(ExternalChoice<E, TauProof, TickProof>),
     InternalChoice(InternalChoice<E, TauProof, TickProof>),
     Prefix(Prefix<E, TauProof, TickProof>),
     Skip(Skip<E, TickProof>),
@@ -123,6 +145,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            CSPInner::ExternalChoice(this) => (this as &dyn Display).fmt(f),
             CSPInner::InternalChoice(this) => (this as &dyn Display).fmt(f),
             CSPInner::Prefix(this) => (this as &dyn Display).fmt(f),
             CSPInner::Skip(this) => (this as &dyn Display).fmt(f),
@@ -137,6 +160,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            CSPInner::ExternalChoice(this) => (this as &dyn Debug).fmt(f),
             CSPInner::InternalChoice(this) => (this as &dyn Debug).fmt(f),
             CSPInner::Prefix(this) => (this as &dyn Debug).fmt(f),
             CSPInner::Skip(this) => (this as &dyn Debug).fmt(f),
@@ -153,6 +177,7 @@ where
 {
     fn initials(&self) -> E {
         match self {
+            CSPInner::ExternalChoice(this) => this.initials(),
             CSPInner::InternalChoice(this) => this.initials(),
             CSPInner::Prefix(this) => this.initials(),
             CSPInner::Skip(this) => this.initials(),
@@ -165,6 +190,7 @@ where
         events: &E,
     ) -> Box<dyn Iterator<Item = (E, CSP<E, TauProof, TickProof>)> + '_> {
         match self {
+            CSPInner::ExternalChoice(this) => Box::new(this.transitions(events)),
             CSPInner::InternalChoice(this) => Box::new(this.transitions(events)),
             CSPInner::Prefix(this) => Box::new(this.transitions(events)),
             CSPInner::Skip(this) => Box::new(this.transitions(events)),
